@@ -2,11 +2,11 @@
 {
     public class MapObject
     {
-        private string        _name       = "";
-        private float         _opacity    = 1.0f;
-        private bool          _visible    = true;
-        private MapProperties _properties = new MapProperties();
-        private Color         _color      = Color.White;
+        private          string        _name       = "";
+        private          float         _opacity    = 1.0f;
+        private          bool          _visible    = true;
+        private readonly MapProperties _properties = new MapProperties();
+        private          Color         _color      = Color.White;
 
         public string GetName()
         {
@@ -54,4 +54,3 @@
         }
     }
 }
-

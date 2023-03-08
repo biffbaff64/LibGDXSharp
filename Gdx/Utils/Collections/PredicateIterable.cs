@@ -2,13 +2,13 @@
 
 namespace LibGDXSharp.Utils.Collections
 {
-    public class PredicateIEnumerable<T> : IEnumerable< T >
+    public class PredicateIterable<T> : IEnumerable< T >
     {
         public IEnumerable< T >       Enumerable { get; set; }
         public IPredicate< T >        Predicate  { get; set; }
-        public PredicateIEnumerator< T > Enumerator { get; set; } = null;
+        public PredicateIterator< T > Enumerator { get; set; } = null;
 
-        public PredicateIEnumerable( IEnumerable< T > enumerable, IPredicate< T > predicate )
+        public PredicateIterable( IEnumerable< T > enumerable, IPredicate< T > predicate )
         {
             this.Enumerable = enumerable;
             this.Predicate  = predicate;

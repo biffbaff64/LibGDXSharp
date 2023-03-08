@@ -14,7 +14,7 @@ namespace LibGDXSharp.Utils.Collections
         public bool Ordered { get; private set; }
 
         private ArrayIterable< T >?        _iterable;
-        private PredicateIEnumerable< T >? _predicateIEnumerable;
+        private PredicateIterable< T >? _predicateIEnumerable;
 
         /// <summary>
         /// Creates a new Array with the specified initial capacity.
@@ -636,7 +636,7 @@ namespace LibGDXSharp.Utils.Collections
 
             if ( _predicateIEnumerable == null )
             {
-                _predicateIEnumerable = new PredicateIEnumerable< T >( Items, predicate );
+                _predicateIEnumerable = new PredicateIterable< T >( Items, predicate );
             }
             else
             {

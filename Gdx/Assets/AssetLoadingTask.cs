@@ -1,4 +1,6 @@
-﻿namespace LibGDXSharp.Assets
+﻿using LibGDXSharp.Utils.Collections;
+
+namespace LibGDXSharp.Assets
 {
     public class AssetLoadingTask<T> : IAsyncTask< bool > where T : AssetLoaderParameters< T >
     {

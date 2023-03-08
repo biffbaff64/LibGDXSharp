@@ -1,6 +1,6 @@
 ﻿namespace LibGDXSharp.Utils.Collections
 {
-    public class LongArray : List< long >
+    public class LongArray
     {
     }
 }

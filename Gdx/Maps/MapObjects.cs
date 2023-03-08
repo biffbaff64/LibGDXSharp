@@ -4,7 +4,7 @@ namespace LibGDXSharp.Maps
 {
     public class MapObjects : IEnumerable<MapObject>
     {
-        private List< MapObject > _objects;
+        private readonly List< MapObject > _objects;
 
         public MapObjects()
         {
@@ -76,7 +76,7 @@ namespace LibGDXSharp.Maps
 
         public IEnumerator< MapObject > GetEnumerator()
         {
-            yield break;
+            return _objects.GetEnumerator();
         }
 
         IEnumerator IEnumerable.GetEnumerator()

@@ -1,6 +1,6 @@
 ﻿namespace LibGDXSharp.Utils.Collections
 {
-    public class FloatArray : List< float >
+    public class FloatArray
     {
     }
 }
