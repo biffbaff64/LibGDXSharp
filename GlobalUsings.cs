@@ -1,6 +1,8 @@
 ﻿// -----------------------------------------------------------------------
 // System
 
+global using System;
+
 global using Silk.NET.GLFW;
 global using Silk.NET.Windowing;
 

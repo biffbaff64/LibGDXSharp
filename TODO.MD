@@ -83,11 +83,11 @@ GRAPHICS
     - DONE - Color
     -      - Colors
     -      - Cubemap
-    -      - CubemapData
     - DONE - DisplayMode
     -      - FPSLogger
     -      - GLTexture
     - DONE - GraphicsType
+    -      - ICubemapData
     - DONE - ICursor
     - IP   - IGL20
     -      - IGL30
@@ -108,20 +108,20 @@ GRAPHICS
 GRAPHICS/G2D
 ------------
     -      - Animation
-    -      - Batch
     - IP   - BitmapFont
     -      - BitmapFontCache
     -      - CpuSpriteBatch
     -      - DistanceFieldFont
     -      - Gdx2DPixmap
     -      - GlyphLayout
+    -      - IBatch
+    -      - IPolygonBatch
     -      - NinePatch
     -      - ParticleEffect
     -      - ParticleEffectPool
     -      - ParticleEmitter
     -      - PixmapPacker
     -      - PixmapPacker10
-    -      - PolygonBatch
     -      - PolygonRegion
     -      - PolygonRegionLoader
     -      - PolygonSprite
@@ -246,7 +246,7 @@ MAPS/TILED/TILES
 
 MATH
 ----
-    -      - Affine2
+    - IP   - Affine2
     -      - Bezier
     -      - Bresenham
     -      - BSpline
@@ -265,16 +265,19 @@ MATH
     -      - Interpolation
     -      - Intersector
     -      - IPath
+    - DONE - IShape2D
+    - DONE - IVector
     - IP   - MathUtils
-    -      - Matrix3
-    -      - Matrix4
+    - IP   - Matrix3
+    - IP   - Matrix4
     -      - Plane
     -      - Polygon
     -      - Polyline
     -      - Quaternion
     -      - RandomXS128
     - IP   - Rectangle
-    -      - Shape2D
+    - DONE - Vector2
+    - DONE - Vector3        ( Needs documentation comments )
     -      - WindowedMean
 
 MATH/COLLISION

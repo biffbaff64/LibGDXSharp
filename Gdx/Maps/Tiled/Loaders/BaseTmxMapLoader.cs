@@ -4,7 +4,7 @@ using LibGDXSharp.G2D;
 using LibGDXSharp.Maps.Objects;
 using LibGDXSharp.Maps.Tiled.Objects;
 using LibGDXSharp.Maps.Tiled.Tiles;
-using LibGDXSharp.Math;
+using LibGDXSharp.Maths;
 using LibGDXSharp.Utils.Collections;
 using LibGDXSharp.Utils.Xml;
 

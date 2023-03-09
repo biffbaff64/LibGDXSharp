@@ -1,7 +1,7 @@
 ﻿using System.Numerics;
 
 using LibGDXSharp.G2D;
-using LibGDXSharp.Math;
+using LibGDXSharp.Maths;
 using LibGDXSharp.Scenes.Scene2D.Utils;
 
 namespace LibGDXSharp.Scenes.Scene2D

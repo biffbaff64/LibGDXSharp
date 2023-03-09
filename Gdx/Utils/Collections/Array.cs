@@ -2,7 +2,7 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Text;
 
-using LibGDXSharp.Math;
+using LibGDXSharp.Maths;
 
 namespace LibGDXSharp.Utils.Collections
 {
