@@ -86,15 +86,15 @@ namespace LibGDXSharp.Assets
             
             lock ( this )
             {
-                Type type = _assetTypes.Get( name );
+                var type = _assetTypes.Get( name );
 
                 if ( type == null ) throw new GdxRuntimeException( "Asset not loaded - " + name );
 
-                ObjectMap< string, RefCountedContainer > assetsByType = _assets.Get( type );
+                var assetsByType = _assets.Get( type );
 
                 if ( assetsByType == null ) throw new GdxRuntimeException( "Asset not loaded - " + name );
 
-                RefCountedContainer assetContainer = assetsByType.Get( name );
+                var assetContainer = assetsByType.Get( name );
 
                 if ( assetContainer == null ) throw new GdxRuntimeException( "Asset not loaded - " + name );
 

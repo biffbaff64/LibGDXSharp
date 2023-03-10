@@ -5,15 +5,13 @@ namespace LibGDXSharp.Utils.Collections
 {
     public class ObjectMap<TK, TV> : IEnumerable< ObjectMap< TK, TV >.Entry< TK, TV > >
     {
-        private static object _dummy = new object();
+        public int Size { get; set; }
 
-        public int Size;
-
-        private TK[]? _keyTable;
+        private TK[]  _keyTable;
         private TV[]? _valueTable;
 
-        private float _loadFactor;
-        private int   _threshold;
+        private readonly float _loadFactor;
+        private readonly int   _threshold;
 
         /// <summary>
         /// Used by <see cref="Place"/> to bit shift the upper bits of a <code>long</code>
@@ -25,7 +23,7 @@ namespace LibGDXSharp.Utils.Collections
         /// <see cref="mask"/>) can also be used to mask the low bits of a number, which may
         /// be faster for some hashcodes, if <see cref="Place"/> is overridden.
         /// </summary>
-        protected int shift;
+        protected readonly int shift;
 
         /// <summary>
         /// A bitmask used to confine hashcodes to the size of the table. Must be all
@@ -33,7 +31,7 @@ namespace LibGDXSharp.Utils.Collections
         /// If <see cref="Place"/> is overriden, this can be used instead of <see cref="Shift"/>
         /// to isolate usable bits of a hash.
         /// </summary>
-        protected int mask;
+        protected readonly int mask;
 
         [NonSerialized] private Entries? _entries1, _entries2;
         [NonSerialized] private Values?  _values1,  _values2;
@@ -68,7 +66,7 @@ namespace LibGDXSharp.Utils.Collections
 
             this._loadFactor = loadFactor;
 
-            int tableSize = TableSize( initialCapacity, loadFactor );
+            var tableSize = ObjectSet< TK >.TableSize( initialCapacity, loadFactor );
 
             _threshold = ( int )( tableSize * loadFactor );
             mask       = tableSize - 1;
@@ -85,17 +83,16 @@ namespace LibGDXSharp.Utils.Collections
         /// <exception cref="ArgumentException"></exception>
         public ObjectMap( ObjectMap< TK, TV > map )
         {
-            if ( map == null )
-            {
-                throw new ArgumentException( "supplied map is null!" );
-            }
+            if ( map == null ) throw new ArgumentException( "supplied map is null!" );
 
+            if ( map._valueTable == null )
+            {
+                throw new ArgumentException( "supplied map._valuetable is null!" );
+            }
+            
             this._loadFactor = map._loadFactor;
 
-            Debug.Assert( map._keyTable != null, "map._keyTable != null" );
-            Debug.Assert( map._valueTable != null, "map._valueTable != null" );
-
-            int tableSize = TableSize( ( int )( map._keyTable.Length * map._loadFactor ), _loadFactor );
+            var tableSize = ObjectSet< TK >.TableSize( ( int )( map._keyTable.Length * map._loadFactor ), _loadFactor );
 
             _threshold = ( int )( tableSize * _loadFactor );
             mask       = tableSize - 1;
@@ -111,12 +108,17 @@ namespace LibGDXSharp.Utils.Collections
         }
 
         /// <summary>
+        /// Returns an index greater than or equal to 0 and less than or equal
+        /// to <see cref="mask"/> for the specified <code>item</code>.
         /// </summary>
         /// <param name="item"></param>
         /// <returns></returns>
-        protected int Place( TK? item )
+        protected virtual int Place( TK item )
         {
-            Debug.Assert( item != null, nameof( item ) + " != null" );
+            if ( item == null )
+            {
+                throw new ArgumentException( "item cannot be null!" );
+            }
 
             return ( int )( ( ( ulong )item.GetHashCode() * 0x9E3779B97F4A7C15L ) >>> shift );
         }
@@ -129,8 +131,6 @@ namespace LibGDXSharp.Utils.Collections
         private int LocateKey( TK key )
         {
             if ( key == null ) throw new ArgumentException( "key cannot be null." );
-
-            Debug.Assert( _keyTable != null, nameof( _keyTable ) + " != null" );
 
             for ( var i = Place( key );; i = ( i + 1 ) & mask )
             {
@@ -154,42 +154,129 @@ namespace LibGDXSharp.Utils.Collections
             if ( i >= 0 )
             {
                 // Existing key was found.
-                var oldValue = _valueTable![ i ];
-                _valueTable[ i ] = value!;
+                var oldValue = _valueTable[ i ];
+                _valueTable[ i ] = value;
 
                 return oldValue;
             }
 
             i = -( i + 1 ); // Empty space was found.
 
-            _keyTable![ i ]   = key;
-            _valueTable![ i ] = value!;
+            _keyTable[ i ]   = key;
+            _valueTable[ i ] = value!;
 
             if ( ++Size >= _threshold ) Resize( _keyTable.Length << 1 );
 
             return default;
         }
 
-        public void PutAll( ObjectMap<TK, TV> map)
+        /// <summary>
+        /// </summary>
+        /// <param name="map"></param>
+        public void PutAll( ObjectMap< TK, TV > map )
         {
             EnsureCapacity( map.Size );
-        
-            var keyTable   = map._keyTable;
-            var valueTable = map._valueTable;
 
-            for ( int i = 0, n = keyTable.Length; i < n; i++ )
+            for ( int i = 0, n = _keyTable!.Length; i < n; i++ )
             {
-                var key = keyTable[ i ];
-                
-                if ( key != null ) Put( key, valueTable[ i ] );
+                var key = _keyTable[ i ];
+
+                if ( key != null ) Put( key, _valueTable![ i ] );
             }
         }
 
+        /// <summary>
+        /// </summary>
+        /// <remarks>Skips checks for existing keys.</remarks>
+        /// <remarks>Doesn't increment Size.</remarks>
+        /// <param name="key"></param>
+        /// <param name="value"></param>
+        private void PutResize( TK key, TV? value )
+        {
+            Debug.Assert( _keyTable != null, nameof( _keyTable ) + " != null" );
+            Debug.Assert( _valueTable != null, nameof( _valueTable ) + " != null" );
+
+            for ( var i = Place( key );; i = ( i + 1 ) & mask )
+            {
+                if ( _keyTable[ i ] == null )
+                {
+                    _keyTable[ i ]   = key;
+                    _valueTable[ i ] = value!;
+
+                    return;
+                }
+            }
+        }
+
+        /// <summary>
+        /// </summary>
+        /// <param name="key"></param>
+        /// <typeparam name="TT"></typeparam>
+        /// <returns></returns>
+        public TV? Get<TT>( TT key ) where TT : TK
+        {
+            Debug.Assert( _valueTable != null, nameof( _valueTable ) + " != null" );
+
+            var i = LocateKey( key );
+
+            return ( i < 0 ) ? default : _valueTable[ i ];
+        }
+
+        public TV? Get( TK key, TV? defaultValue )
+        {
+            Debug.Assert( _valueTable != null, nameof( _valueTable ) + " != null" );
+
+            var i = LocateKey( key );
+
+            return i < 0 ? defaultValue : _valueTable[ i ];
+        }
+
+        public TV Remove( TK key )
+        {
+            var i = LocateKey( key );
+
+            if ( i < 0 ) return null;
+
+            var oldValue = _valueTable[ i ];
+
+            var next = ( i + 1 ) & mask;
+
+            while ( ( key = _keyTable[ next ] ) != null )
+            {
+                var placement = Place( key );
+
+                if ( ( ( next - placement ) & mask ) > ( ( i - placement ) & mask ) )
+                {
+                    _keyTable[ i ]   = key;
+                    _valueTable[ i ] = _valueTable[ next ];
+
+                    i = next;
+                }
+
+                next = ( next + 1 ) & mask;
+            }
+
+            _keyTable[ i ]   = null;
+            _valueTable[ i ] = null;
+
+            Size--;
+
+            return oldValue;
+        }
+
+        /// <summary>
+        /// Helper method.
+        /// </summary>
+        /// <returns>TRUE if Size is greater than zero.</returns>
         public bool NotEmpty()
         {
             return Size > 0;
         }
 
+        /// <summary>
+        /// Helper method.
+        /// </summary>
+        /// <returns>TRUE if Size is zero.</returns>
         public bool IsEmpty()
         {
             return Size == 0;
