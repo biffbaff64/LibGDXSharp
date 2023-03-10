@@ -1,67 +1,71 @@
 ﻿using LibGDXSharp.G2D;
 using LibGDXSharp.Scenes.Scene2D.UI;
+using LibGDXSharp.Utils.Async;
+using LibGDXSharp.Utils.Collections;
+using LibGDXSharp.Utils.Json;
+using LibGDXSharp.Utils.Reflect;
 
 namespace LibGDXSharp.Assets
 {
     public class AssetManager
     {
-        private ObjectMap< Type, ObjectMap< string, RefCountedContainer > > assets;
-        private ObjectMap< string, Type >                                   assetTypes;
-        private ObjectMap< string, Array< string > >                        assetDependencies;
-        private ObjectSet< string >                                         injected;
+        private ObjectMap< Type, ObjectMap< string, RefCountedContainer > > _assets;
+        private ObjectMap< string, Type >                                   _assetTypes;
+        private ObjectMap< string, Array< string > >                        _assetDependencies;
+        private ObjectSet< string >                                         _injected;
 
-        private ObjectMap< Type, ObjectMap< string, AssetLoader > > loaders;
-        private Array< AssetDescriptor >                            loadQueue;
-        private AsyncExecutor                                       executor;
+        private ObjectMap< Type, ObjectMap< string, AssetLoader > > _loaders;
+        private Array< AssetDescriptor >                            _loadQueue;
+        private AsyncExecutor                                       _executor;
 
-        private Stack< AssetLoadingTask > tasks = new Stack< AssetLoadingTask >();
-        private IAssetErrorListener       listener;
-        private int                       loaded;
-        private int                       toLoad;
-        private int                       peakTasks;
+        private Stack< AssetLoadingTask > _tasks = new Stack< AssetLoadingTask >();
+        private IAssetErrorListener       _listener;
+        private int                       _loaded;
+        private int                       _toLoad;
+        private int                       _peakTasks;
 
-        private IFileHandleResolver resolver;
+        private IFileHandleResolver _resolver;
 
         private Logger _log = new Logger( "AssetManager", Application.LogNone );
 
-        /** Creates a new AssetManager with all default loaders. */
+        /// <summary>
+        /// Creates a new AssetManager with all default loaders.
+        ///</summary>
         public AssetManager() : this( new InternalFileHandleResolver() )
         {
         }
 
-        /** Creates a new AssetManager with all default loaders. */
-        public AssetManager( IFileHandleResolver resolver )
+        /// <summary>
+        /// Creates a new AssetManager with optionally all default loaders.
+        /// If you don't add the default loaders then you do have to manually add
+        /// the loaders you need, including any loaders they might depend on.
+        /// </summary>
+        /// <param name="resolver"></param>
+        /// <param name="defaultLoaders">Whether to add the default loaders (default is true).</param>
+        public AssetManager( IFileHandleResolver resolver, bool defaultLoaders = true )
         {
-            this( resolver, true );
-        }
-
-        /** Creates a new AssetManager with optionally all default loaders. If you don't add the default loaders then you do have to
-	 * manually add the loaders you need, including any loaders they might depend on.
-	 * @param defaultLoaders whether to add the default loaders */
-        public AssetManager( IFileHandleResolver resolver, bool defaultLoaders )
-        {
-            this.resolver = resolver;
+            this._resolver = resolver;
 
             if ( defaultLoaders )
             {
-                setLoader( BitmapFont.class, new BitmapFontLoader( resolver ));
-                setLoader( Music.class, new MusicLoader( resolver ));
-                setLoader( Pixmap.class, new PixmapLoader( resolver ));
-                setLoader( Sound.class, new SoundLoader( resolver ));
-                setLoader( TextureAtlas.class, new TextureAtlasLoader( resolver ));
-                setLoader( Texture.class, new TextureLoader( resolver ));
-                setLoader( Skin.class, new SkinLoader( resolver ));
-                setLoader( ParticleEffect.class, new ParticleEffectLoader( resolver ));
-                setLoader( PolygonRegion.class, new PolygonRegionLoader( resolver ));
-                setLoader( I18NBundle.class, new I18NBundleLoader( resolver ));
-                setLoader( Model.class, ".g3dj", new G3dModelLoader( new JsonReader(), resolver ));
-                setLoader( Model.class, ".g3db", new G3dModelLoader( new UBJsonReader(), resolver ));
-                setLoader( Model.class, ".obj", new ObjLoader( resolver ));
-                setLoader( ShaderProgram.class, new ShaderProgramLoader( resolver ));
-                setLoader( Cubemap.class, new CubemapLoader( resolver ));
+                SetLoader( BitmapFont.class, new BitmapFontLoader( resolver ));
+                SetLoader( Music.class, new MusicLoader( resolver ));
+                SetLoader( Pixmap.class, new PixmapLoader( resolver ));
+                SetLoader( Sound.class, new SoundLoader( resolver ));
+                SetLoader( TextureAtlas.class, new TextureAtlasLoader( resolver ));
+                SetLoader( Texture.class, new TextureLoader( resolver ));
+                SetLoader( Skin.class, new SkinLoader( resolver ));
+                SetLoader( ParticleEffect.class, new ParticleEffectLoader( resolver ));
+                SetLoader( PolygonRegion.class, new PolygonRegionLoader( resolver ));
+                SetLoader( I18NBundle.class, new I18NBundleLoader( resolver ));
+                SetLoader( Model.class, ".g3dj", new G3dModelLoader( new JsonReader(), resolver ));
+                SetLoader( Model.class, ".g3db", new G3dModelLoader( new UBJsonReader(), resolver ));
+                SetLoader( Model.class, ".obj", new ObjLoader( resolver ));
+                SetLoader( ShaderProgram.class, new ShaderProgramLoader( resolver ));
+                SetLoader( Cubemap.class, new CubemapLoader( resolver ));
             }
 
-            executor = new AsyncExecutor( 1, "AssetManager" );
+            _executor = new AsyncExecutor( 1, "AssetManager" );
         }
 
         /// <summary>
@@ -70,7 +74,7 @@ namespace LibGDXSharp.Assets
         /// <returns>the file handle resolver which this AssetManager uses.</returns>
         public IFileHandleResolver GetFileHandleResolver()
         {
-            return resolver;
+            return _resolver;
         }
 
         /// <summary>
@@ -82,11 +86,11 @@ namespace LibGDXSharp.Assets
             
             lock ( this )
             {
-                Type type = assetTypes.Get( name );
+                Type type = _assetTypes.Get( name );
 
                 if ( type == null ) throw new GdxRuntimeException( "Asset not loaded - " + name );
 
-                ObjectMap< string, RefCountedContainer > assetsByType = assets.Get( type );
+                ObjectMap< string, RefCountedContainer > assetsByType = _assets.Get( type );
 
                 if ( assetsByType == null ) throw new GdxRuntimeException( "Asset not loaded - " + name );
 
@@ -108,7 +112,7 @@ namespace LibGDXSharp.Assets
             
             lock( this )
             {
-                ObjectMap< string, RefCountedContainer > assetsByType = assets.Get( type );
+                ObjectMap< string, RefCountedContainer > assetsByType = _assets.Get( type );
 
                 if ( assetsByType == null ) throw new GdxRuntimeException( "Asset not loaded - " + name );
                 
@@ -128,7 +132,7 @@ namespace LibGDXSharp.Assets
         {
             lock ( this )
             {
-                ObjectMap< string, RefCountedContainer > assetsByType = assets.Get( type );
+                ObjectMap< string, RefCountedContainer > assetsByType = _assets.Get( type );
 
                 if ( assetsByType != null )
                 {
@@ -147,47 +151,47 @@ namespace LibGDXSharp.Assets
             return Get( assetDescriptor.fileName, assetDescriptor.type );
         }
 
-        public synchronized bool contains( string fileName )
+        public synchronized bool Contains( string fileName )
         {
-            if ( tasks.size() > 0 && tasks.firstElement().assetDesc.fileName.equals( fileName ) ) return true;
+            if ( _tasks.size() > 0 && _tasks.firstElement().assetDesc.fileName.equals( fileName ) ) return true;
 
-            for ( int i = 0; i < loadQueue.size; i++ )
-                if ( loadQueue.get( i ).fileName.equals( fileName ) )
+            for ( int i = 0; i < _loadQueue.size; i++ )
+                if ( _loadQueue.get( i ).fileName.equals( fileName ) )
                     return true;
 
-            return isLoaded( fileName );
+            return IsLoaded( fileName );
         }
 
-        public synchronized bool contains( string fileName, Class type )
+        public synchronized bool Contains( string fileName, Class type )
         {
-            if ( tasks.size() > 0 )
+            if ( _tasks.size() > 0 )
             {
-                AssetDescriptor assetDesc = tasks.firstElement().assetDesc;
+                AssetDescriptor assetDesc = _tasks.firstElement().assetDesc;
 
                 if ( assetDesc.type == type && assetDesc.fileName.equals( fileName ) ) return true;
             }
 
-            for ( int i = 0; i < loadQueue.size; i++ )
+            for ( int i = 0; i < _loadQueue.size; i++ )
             {
-                AssetDescriptor assetDesc = loadQueue.get( i );
+                AssetDescriptor assetDesc = _loadQueue.get( i );
 
                 if ( assetDesc.type == type && assetDesc.fileName.equals( fileName ) ) return true;
             }
 
-            return isLoaded( fileName, type );
+            return IsLoaded( fileName, type );
         }
 
         /** Removes the asset and all its dependencies, if they are not used by other assets.
 	 * @param fileName the file name */
-        public synchronized void unload( string fileName )
+        public synchronized void Unload( string fileName )
         {
             // convert all windows path separators to unix style
             fileName = fileName.replace( '\\', '/' );
 
             // check if it's currently processed (and the first element in the stack, thus not a dependency) and cancel if necessary
-            if ( tasks.size() > 0 )
+            if ( _tasks.size() > 0 )
             {
-                AssetLoadingTask currentTask = tasks.firstElement();
+                AssetLoadingTask currentTask = _tasks.firstElement();
 
                 if ( currentTask.assetDesc.fileName.equals( fileName ) )
                 {
@@ -199,14 +203,14 @@ namespace LibGDXSharp.Assets
                 }
             }
 
-            Class type = assetTypes.get( fileName );
+            Class type = _assetTypes.get( fileName );
 
             // check if it's in the queue
             int foundIndex = -1;
 
-            for ( int i = 0; i < loadQueue.size; i++ )
+            for ( int i = 0; i < _loadQueue.size; i++ )
             {
-                if ( loadQueue.get( i ).fileName.equals( fileName ) )
+                if ( _loadQueue.get( i ).fileName.equals( fileName ) )
                 {
                     foundIndex = i;
 
@@ -216,8 +220,8 @@ namespace LibGDXSharp.Assets
 
             if ( foundIndex != -1 )
             {
-                toLoad--;
-                AssetDescriptor desc = loadQueue.removeIndex( foundIndex );
+                _toLoad--;
+                AssetDescriptor desc = _loadQueue.removeIndex( foundIndex );
                 _log.info( "Unload (from queue): " + fileName );
 
                 // if the queued asset was already loaded, let the callback know it is available.
@@ -229,50 +233,50 @@ namespace LibGDXSharp.Assets
 
             if ( type == null ) throw new GdxRuntimeException( "Asset not loaded: " + fileName );
 
-            RefCountedContainer assetRef = assets.get( type ).get( fileName );
+            RefCountedContainer assetRef = _assets.get( type ).get( fileName );
 
             // if it is reference counted, decrement ref count and check if we can really get rid of it.
-            assetRef.decRefCount();
+            assetRef.DecRefCount();
 
-            if ( assetRef.getRefCount() <= 0 )
+            if ( assetRef.GetRefCount() <= 0 )
             {
                 _log.info( "Unload (dispose): " + fileName );
 
                 // if it is disposable dispose it
-                if ( assetRef.getObject
-                        ( Object.class) instanceof Disposable) ( ( Disposable )assetRef.getObject( Object.class)).dispose();
+                if ( assetRef.GetObject
+                        ( Object.class) instanceof disposable) ( ( Disposable )assetRef.GetObject( Object.class)).Dispose();
 
                 // remove the asset from the manager.
-                assetTypes.remove( fileName );
-                assets.get( type ).remove( fileName );
+                _assetTypes.remove( fileName );
+                _assets.get( type ).remove( fileName );
             }
             else
                 _log.info( "Unload (decrement): " + fileName );
 
             // remove any dependencies (or just decrement their ref count).
-            Array< string > dependencies = assetDependencies.get( fileName );
+            Array< string > dependencies = _assetDependencies.get( fileName );
 
             if ( dependencies != null )
             {
                 for ( string dependency :
                 dependencies)
-                if ( isLoaded( dependency ) ) unload( dependency );
+                if ( isLoaded( dependency ) ) Unload( dependency );
             }
 
             // remove dependencies if ref count < 0
-            if ( assetRef.getRefCount() <= 0 ) assetDependencies.remove( fileName );
+            if ( assetRef.GetRefCount() <= 0 ) _assetDependencies.remove( fileName );
         }
 
         /** @param asset the asset
 	 * @return whether the asset is contained in this manager */
-        public synchronized< T > bool containsAsset( T asset )
+        public synchronized< T > bool ContainsAsset( T asset )
         {
-            ObjectMap< string, RefCountedContainer > assetsByType = assets.get( asset.getClass() );
+            ObjectMap< string, RefCountedContainer > assetsByType = _assets.get( asset.getClass() );
 
             if ( assetsByType == null ) return false;
             for ( string fileName :
             assetsByType.keys()) {
-                T otherAsset = ( T )assetsByType.get( fileName ).getObject( Object.class);
+                T otherAsset = ( T )assetsByType.get( FileName ).getObject( Object.class);
 
                 if ( otherAsset == asset || asset.equals( otherAsset ) ) return true;
             }
@@ -282,16 +286,16 @@ namespace LibGDXSharp.Assets
 
         /** @param asset the asset
 	 * @return the filename of the asset or null */
-        public synchronized< T > string getAssetFileName( T asset )
+        public synchronized< T > string GetAssetFileName( T asset )
         {
-            for ( Class assetType :
-            assets.keys()) {
-                ObjectMap< string, RefCountedContainer > assetsByType = assets.get( assetType );
+            for ( _class assetType :
+            _assets.keys()) {
+                ObjectMap< string, RefCountedContainer > assetsByType = _assets.get( assetType );
                 for ( string fileName :
                 assetsByType.keys()) {
-                    T otherAsset = ( T )assetsByType.get( fileName ).getObject( Object.class);
+                    T otherAsset = ( T )assetsByType.get( FileName ).getObject( Object.class);
 
-                    if ( otherAsset == asset || asset.equals( otherAsset ) ) return fileName;
+                    if ( otherAsset == asset || asset.equals( otherAsset ) ) return FileName;
                 }
             }
 
@@ -300,38 +304,38 @@ namespace LibGDXSharp.Assets
 
         /** @param assetDesc the AssetDescriptor of the asset
 	 * @return whether the asset is loaded */
-        public synchronized bool isLoaded( AssetDescriptor assetDesc )
+        public synchronized bool IsLoaded( AssetDescriptor assetDesc )
         {
             return isLoaded( assetDesc.fileName );
         }
 
         /** @param fileName the file name of the asset
 	 * @return whether the asset is loaded */
-        public synchronized bool isLoaded( string fileName )
+        public synchronized bool IsLoaded( string fileName )
         {
             if ( fileName == null ) return false;
 
-            return assetTypes.containsKey( fileName );
+            return _assetTypes.containsKey( fileName );
         }
 
         /** @param fileName the file name of the asset
 	 * @return whether the asset is loaded */
-        public synchronized bool isLoaded( string fileName, Class type )
+        public synchronized bool IsLoaded( string fileName, Class type )
         {
-            ObjectMap< string, RefCountedContainer > assetsByType = assets.get( type );
+            ObjectMap< string, RefCountedContainer > assetsByType = _assets.get( type );
 
             if ( assetsByType == null ) return false;
             RefCountedContainer assetContainer = assetsByType.get( fileName );
 
             if ( assetContainer == null ) return false;
 
-            return assetContainer.getObject( type ) != null;
+            return assetContainer.GetObject( type ) != null;
         }
 
         /** Returns the default loader for the given type.
 	 * @param type The type of the loader to get
 	 * @return The loader capable of loading the type, or null if none exists */
-        public <T> AssetLoader getLoader( final Class<T> type) {
+        public <T> AssetLoader GetLoader( final @class<T> type) {
             return getLoader( type, null );
         }
 
@@ -340,9 +344,9 @@ namespace LibGDXSharp.Assets
 	 * @param type The type of the loader to get
 	 * @param fileName The filename of the asset to get a loader for, or null to get the default loader
 	 * @return The loader capable of loading the type and filename, or null if none exists */
-        public <T> AssetLoader getLoader( final Class<T> type, final string fileName) {
+        public <T> AssetLoader GetLoader( final @class<T> type, final string FileName) {
             final ObjectMap< string, AssetLoader >
-                loaders = this.loaders.get( type );
+                loaders = this._loaders.get( type );
 
             if ( loaders == null || loaders.size < 1 ) return null;
             if ( fileName == null ) return loaders.get( "" );
@@ -352,7 +356,7 @@ namespace LibGDXSharp.Assets
             loaders.entries())
 
             {
-                if ( entry.key.length() > l && fileName.endsWith( entry.key ) )
+                if ( entry.key.length() > l && FileName.endsWith( entry.key ) )
                 {
                     result = entry.value;
                     l      = entry.key.length();
@@ -365,16 +369,16 @@ namespace LibGDXSharp.Assets
         /** Adds the given asset to the loading queue of the AssetManager.
 	 * @param fileName the file name (interpretation depends on {@link AssetLoader})
 	 * @param type the type of the asset. */
-        public synchronized< T > void load( string fileName, Class< T > type )
+        public synchronized< T > void Load( string fileName, Class< T > type )
         {
-            load( fileName, type, null );
+            Load( fileName, type, null );
         }
 
         /** Adds the given asset to the loading queue of the AssetManager.
 	 * @param fileName the file name (interpretation depends on {@link AssetLoader})
 	 * @param type the type of the asset.
 	 * @param parameter parameters for the AssetLoader. */
-        public synchronized< T > void load( string fileName, Class< T > type, AssetLoaderParameters< T > parameter )
+        public synchronized< T > void Load( string fileName, Class< T > type, AssetLoaderParameters< T > parameter )
         {
             AssetLoader loader = getLoader( type, fileName );
 
@@ -382,19 +386,19 @@ namespace LibGDXSharp.Assets
                 throw new GdxRuntimeException( "No loader for type: " + ClassReflection.getSimpleName( type ) );
 
             // reset stats
-            if ( loadQueue.size == 0 )
+            if ( _loadQueue.size == 0 )
             {
-                loaded    = 0;
-                toLoad    = 0;
-                peakTasks = 0;
+                _loaded    = 0;
+                _toLoad    = 0;
+                _peakTasks = 0;
             }
 
             // check if an asset with the same name but a different type has already been added.
 
             // check preload queue
-            for ( int i = 0; i < loadQueue.size; i++ )
+            for ( int i = 0; i < _loadQueue.size; i++ )
             {
-                AssetDescriptor desc = loadQueue.get( i );
+                AssetDescriptor desc = _loadQueue.get( i );
 
                 if ( desc.fileName.equals( fileName ) && !desc.type.equals( type ) )
                     throw new GdxRuntimeException
@@ -410,9 +414,9 @@ namespace LibGDXSharp.Assets
             }
 
             // check task list
-            for ( int i = 0; i < tasks.size(); i++ )
+            for ( int i = 0; i < _tasks.size(); i++ )
             {
-                AssetDescriptor desc = tasks.get( i ).assetDesc;
+                AssetDescriptor desc = _tasks.get( i ).assetDesc;
 
                 if ( desc.fileName.equals( fileName ) && !desc.type.equals( type ) )
                     throw new GdxRuntimeException
@@ -428,7 +432,7 @@ namespace LibGDXSharp.Assets
             }
 
             // check loaded assets
-            Class otherType = assetTypes.get( fileName );
+            Class otherType = _assetTypes.get( fileName );
 
             if ( otherType != null && !otherType.equals( type ) )
                 throw new GdxRuntimeException
@@ -442,43 +446,43 @@ namespace LibGDXSharp.Assets
                      + ")"
                     );
 
-            toLoad++;
+            _toLoad++;
             AssetDescriptor assetDesc = new AssetDescriptor( fileName, type, parameter );
-            loadQueue.add( assetDesc );
+            _loadQueue.add( assetDesc );
             _log.debug( "Queued: " + assetDesc );
         }
 
         /** Adds the given asset to the loading queue of the AssetManager.
 	 * @param desc the {@link AssetDescriptor} */
-        public synchronized void load( AssetDescriptor desc )
+        public synchronized void Load( AssetDescriptor desc )
         {
-            load( desc.fileName, desc.type, desc.params );
+            Load( desc.fileName, desc.type, desc.params );
         }
 
         /** Updates the AssetManager for a single task. Returns if the current task is still being processed or there are no tasks,
 	 * otherwise it finishes the current task and starts the next task.
 	 * @return true if all loading is finished. */
-        public synchronized bool update()
+        public synchronized bool Update()
         {
             try
             {
-                if ( tasks.size() == 0 )
+                if ( _tasks.size() == 0 )
                 {
                     // loop until we have a new task ready to be processed
-                    while ( loadQueue.size != 0 && tasks.size() == 0 )
-                        nextTask();
+                    while ( _loadQueue.size != 0 && _tasks.size() == 0 )
+                        NextTask();
 
                     // have we not found a task? We are done!
-                    if ( tasks.size() == 0 ) return true;
+                    if ( _tasks.size() == 0 ) return true;
                 }
 
-                return updateTask() && loadQueue.size == 0 && tasks.size() == 0;
+                return UpdateTask() && _loadQueue.size == 0 && _tasks.size() == 0;
             }
             catch ( Throwable t )
             {
-                handleTaskError( t );
+                HandleTaskError( t );
 
-                return loadQueue.size == 0;
+                return _loadQueue.size == 0;
             }
         }
 
@@ -486,13 +490,13 @@ namespace LibGDXSharp.Assets
 	 * between updates. This may block for less time if all loading tasks are complete. This may block for more time if the portion
 	 * of a single task that happens in the GL thread takes a long time.
 	 * @return true if all loading is finished. */
-        public bool update( int millis )
+        public bool Update( int millis )
         {
             long endTime = TimeUtils.millis() + millis;
 
             while ( true )
             {
-                bool done = update();
+                bool done = Update();
 
                 if ( done || TimeUtils.millis() > endTime ) return done;
                 ThreadUtils.yield();
@@ -501,17 +505,17 @@ namespace LibGDXSharp.Assets
 
         /** Returns true when all assets are loaded. Can be called from any thread but note {@link #update()} or related methods must
 	 * be called to process tasks. */
-        public synchronized bool isFinished()
+        public synchronized bool IsFinished()
         {
-            return loadQueue.size == 0 && tasks.size() == 0;
+            return _loadQueue.size == 0 && _tasks.size() == 0;
         }
 
         /** Blocks until all assets are loaded. */
-        public void finishLoading()
+        public void FinishLoading()
         {
             _log.debug( "Waiting for loading to complete..." );
 
-            while ( !update() )
+            while ( !Update() )
                 ThreadUtils.yield();
 
             _log.debug( "Loading complete." );
@@ -519,25 +523,25 @@ namespace LibGDXSharp.Assets
 
         /** Blocks until the specified asset is loaded.
 	 * @param assetDesc the AssetDescriptor of the asset */
-        public <T> T finishLoadingAsset( AssetDescriptor assetDesc )
+        public <T> T FinishLoadingAsset( AssetDescriptor assetDesc )
         {
             return finishLoadingAsset( assetDesc.fileName );
         }
 
         /** Blocks until the specified asset is loaded.
 	 * @param fileName the file name (interpretation depends on {@link AssetLoader}) */
-        public <T> T finishLoadingAsset( string fileName )
+        public <T> T FinishLoadingAsset( string fileName )
         {
             _log.debug( "Waiting for asset to be loaded: " + fileName );
 
             while ( true )
             {
                 synchronized( this ) {
-                    Class< T > type = assetTypes.get( fileName );
+                    Class< T > type = _assetTypes.get( fileName );
 
                     if ( type != null )
                     {
-                        ObjectMap< string, RefCountedContainer > assetsByType = assets.get( type );
+                        ObjectMap< string, RefCountedContainer > assetsByType = _assets.get( type );
 
                         if ( assetsByType != null )
                         {
@@ -545,7 +549,7 @@ namespace LibGDXSharp.Assets
 
                             if ( assetContainer != null )
                             {
-                                T asset = assetContainer.getObject( type );
+                                T asset = assetContainer.GetObject( type );
 
                                 if ( asset != null )
                                 {
@@ -557,35 +561,35 @@ namespace LibGDXSharp.Assets
                         }
                     }
 
-                    update();
+                    Update();
                 }
 
                 ThreadUtils.yield();
             }
         }
 
-        synchronized void injectDependencies( string parentAssetFilename, Array< AssetDescriptor > dependendAssetDescs )
+        synchronized void InjectDependencies( string parentAssetFilename, Array< AssetDescriptor > dependendAssetDescs )
         {
-            ObjectSet< string > injected = this.injected;
+            ObjectSet< string > injected = this._injected;
             for ( AssetDescriptor desc :
             dependendAssetDescs) {
                 if ( injected.contains( desc.fileName ) ) continue; // Ignore subsequent dependencies if there are duplicates.
                 injected.add( desc.fileName );
-                injectDependency( parentAssetFilename, desc );
+                InjectDependency( parentAssetFilename, desc );
             }
 
             injected.clear( 32 );
         }
 
-        private synchronized void injectDependency( string parentAssetFilename, AssetDescriptor dependendAssetDesc )
+        private synchronized void InjectDependency( string parentAssetFilename, AssetDescriptor dependendAssetDesc )
         {
             // add the asset as a dependency of the parent asset
-            Array< string > dependencies = assetDependencies.get( parentAssetFilename );
+            Array< string > dependencies = _assetDependencies.get( parentAssetFilename );
 
             if ( dependencies == null )
             {
                 dependencies = new Array();
-                assetDependencies.put( parentAssetFilename, dependencies );
+                _assetDependencies.put( parentAssetFilename, dependencies );
             }
 
             dependencies.add( dependendAssetDesc.fileName );
@@ -594,69 +598,69 @@ namespace LibGDXSharp.Assets
             if ( isLoaded( dependendAssetDesc.fileName ) )
             {
                 _log.debug( "Dependency already loaded: " + dependendAssetDesc );
-                Class               type     = assetTypes.get( dependendAssetDesc.fileName );
-                RefCountedContainer assetRef = assets.get( type ).get( dependendAssetDesc.fileName );
-                assetRef.incRefCount();
-                incrementRefCountedDependencies( dependendAssetDesc.fileName );
+                Class               type     = _assetTypes.get( dependendAssetDesc.fileName );
+                RefCountedContainer assetRef = _assets.get( type ).get( dependendAssetDesc.fileName );
+                assetRef.IncRefCount();
+                IncrementRefCountedDependencies( dependendAssetDesc.fileName );
             }
             else
             {
                 // else add a new task for the asset.
                 _log.info( "Loading dependency: " + dependendAssetDesc );
-                addTask( dependendAssetDesc );
+                AddTask( dependendAssetDesc );
             }
         }
 
         /** Removes a task from the loadQueue and adds it to the task stack. If the asset is already loaded (which can happen if it was
 	 * a dependency of a previously loaded asset) its reference count will be increased. */
-        private void nextTask()
+        private void NextTask()
         {
-            AssetDescriptor assetDesc = loadQueue.removeIndex( 0 );
+            AssetDescriptor assetDesc = _loadQueue.removeIndex( 0 );
 
             // if the asset not meant to be reloaded and is already loaded, increase its reference count
             if ( isLoaded( assetDesc.fileName ) )
             {
                 _log.debug( "Already loaded: " + assetDesc );
-                Class               type     = assetTypes.get( assetDesc.fileName );
-                RefCountedContainer assetRef = assets.get( type ).get( assetDesc.fileName );
-                assetRef.incRefCount();
-                incrementRefCountedDependencies( assetDesc.fileName );
+                Class               type     = _assetTypes.get( assetDesc.fileName );
+                RefCountedContainer assetRef = _assets.get( type ).get( assetDesc.fileName );
+                assetRef.IncRefCount();
+                IncrementRefCountedDependencies( assetDesc.fileName );
                 if ( assetDesc.params != null && assetDesc.params.loadedCallback != null)
                 assetDesc.params.loadedCallback.finishedLoading( this, assetDesc.fileName, assetDesc.type );
-                loaded++;
+                _loaded++;
             }
             else
             {
                 // else add a new task for the asset.
                 _log.info( "Loading: " + assetDesc );
-                addTask( assetDesc );
+                AddTask( assetDesc );
             }
         }
 
         /** Adds a {@link AssetLoadingTask} to the task stack for the given asset. */
-        private void addTask( AssetDescriptor assetDesc )
+        private void AddTask( AssetDescriptor assetDesc )
         {
             AssetLoader loader = getLoader( assetDesc.type, assetDesc.fileName );
 
             if ( loader == null )
                 throw new GdxRuntimeException( "No loader for type: " + ClassReflection.getSimpleName( assetDesc.type ) );
 
-            tasks.push( new AssetLoadingTask( this, assetDesc, loader, executor ) );
-            peakTasks++;
+            _tasks.push( new AssetLoadingTask( this, assetDesc, loader, _executor ) );
+            _peakTasks++;
         }
 
         /** Adds an asset to this AssetManager */
-        protected <T> void addAsset( final string fileName, Class< T > type, T asset) {
+        protected <T> void AddAsset( final string _fileName, _class< T > type, T Asset) {
             // add the asset to the filename lookup
-            assetTypes.put( fileName, type );
+            _assetTypes.put( fileName, type );
 
             // add the asset to the type lookup
-            ObjectMap< string, RefCountedContainer > typeToAssets = assets.get( type );
+            ObjectMap< string, RefCountedContainer > typeToAssets = _assets.get( type );
 
             if ( typeToAssets == null )
             {
                 typeToAssets = new ObjectMap< string, RefCountedContainer >();
-                assets.put( type, typeToAssets );
+                _assets.put( type, typeToAssets );
             }
 
             typeToAssets.put( fileName, new RefCountedContainer( asset ) );
@@ -664,9 +668,9 @@ namespace LibGDXSharp.Assets
 
         /** Updates the current task on the top of the task stack.
 	 * @return true if the asset is loaded or the task was cancelled. */
-        private bool updateTask()
+        private bool UpdateTask()
         {
-            AssetLoadingTask task = tasks.peek();
+            AssetLoadingTask task = _tasks.peek();
 
             bool complete = true;
 
@@ -677,24 +681,24 @@ namespace LibGDXSharp.Assets
             catch ( RuntimeException ex )
             {
                 task.cancel = true;
-                taskFailed( task.assetDesc, ex );
+                TaskFailed( task.assetDesc, ex );
             }
 
             // if the task has been cancelled or has finished loading
             if ( complete )
             {
                 // increase the number of loaded assets and pop the task from the stack
-                if ( tasks.size() == 1 )
+                if ( _tasks.size() == 1 )
                 {
-                    loaded++;
-                    peakTasks = 0;
+                    _loaded++;
+                    _peakTasks = 0;
                 }
 
-                tasks.pop();
+                _tasks.pop();
 
                 if ( task.cancel ) return true;
 
-                addAsset( task.assetDesc.fileName, task.assetDesc.type, task.asset );
+                AddAsset( task.assetDesc.fileName, task.assetDesc.type, task.asset );
 
                 // otherwise, if a listener was found in the parameter invoke it
                 if ( task.assetDesc.params != null && task.assetDesc.params.loadedCallback != null)
@@ -711,36 +715,36 @@ namespace LibGDXSharp.Assets
 
         /** Called when a task throws an exception during loading. The default implementation rethrows the exception. A subclass may
 	 * supress the default implementation when loading assets where loading failure is recoverable. */
-        protected void taskFailed( AssetDescriptor assetDesc, RuntimeException ex )
+        protected void TaskFailed( AssetDescriptor assetDesc, RuntimeException ex )
         {
             throw ex;
         }
 
-        private void incrementRefCountedDependencies( string parent )
+        private void IncrementRefCountedDependencies( string parent )
         {
-            Array< string > dependencies = assetDependencies.get( parent );
+            Array< string > dependencies = _assetDependencies.get( parent );
 
             if ( dependencies == null ) return;
 
             for ( string dependency :
             dependencies) {
-                Class               type     = assetTypes.get( dependency );
-                RefCountedContainer assetRef = assets.get( type ).get( dependency );
-                assetRef.incRefCount();
-                incrementRefCountedDependencies( dependency );
+                Class               type     = _assetTypes.get( dependency );
+                RefCountedContainer assetRef = _assets.get( type ).get( dependency );
+                assetRef.IncRefCount();
+                IncrementRefCountedDependencies( dependency );
             }
         }
 
         /** Handles a runtime/loading error in {@link #update()} by optionally invoking the {@link AssetErrorListener}.
 	 * @param t */
-        private void handleTaskError( Throwable t )
+        private void HandleTaskError( Throwable t )
         {
             _log.error( "Error loading asset.", t );
 
-            if ( tasks.isEmpty() ) throw new GdxRuntimeException( t );
+            if ( _tasks.isEmpty() ) throw new GdxRuntimeException( t );
 
             // pop the faulty task from the stack
-            AssetLoadingTask task      = tasks.pop();
+            AssetLoadingTask task      = _tasks.pop();
             AssetDescriptor  assetDesc = task.assetDesc;
 
             // remove all dependencies
@@ -748,15 +752,15 @@ namespace LibGDXSharp.Assets
             {
                 for ( AssetDescriptor desc :
                 task.dependencies)
-                unload( desc.fileName );
+                Unload( desc.fileName );
             }
 
             // clear the rest of the stack
-            tasks.clear();
+            _tasks.clear();
 
             // inform the listener that something bad happened
-            if ( listener != null )
-                listener.error( assetDesc, t );
+            if ( _listener != null )
+                _listener.error( assetDesc, t );
             else
                 throw new GdxRuntimeException( t );
         }
@@ -764,18 +768,18 @@ namespace LibGDXSharp.Assets
         /** Sets a new {@link AssetLoader} for the given type.
 	 * @param type the type of the asset
 	 * @param loader the loader */
-        public synchronized< T, P extends AssetLoaderParameters< T >> void setLoader(
+        public synchronized< T, P Extends AssetLoaderParameters< T >> void SetLoader(
             Class< T > type,
             AssetLoader< T, P > loader )
         {
-            setLoader( type, null, loader );
+            SetLoader( type, null, loader );
         }
 
         /** Sets a new {@link AssetLoader} for the given type.
 	 * @param type the type of the asset
 	 * @param suffix the suffix the filename must have for this loader to be used or null to specify the default loader.
 	 * @param loader the loader */
-        public synchronized< T, P extends AssetLoaderParameters< T >> void setLoader( Class< T > type,
+        public synchronized< T, P Extends AssetLoaderParameters< T >> void SetLoader( Class< T > type,
             string suffix,
             AssetLoader< T, P > loader )
         {
@@ -790,76 +794,76 @@ namespace LibGDXSharp.Assets
                  + ClassReflection.getSimpleName( loader.getClass() )
                 );
 
-            ObjectMap< string, AssetLoader > loaders = this.loaders.get( type );
-            if ( loaders == null ) this.loaders.put( type, loaders = new ObjectMap< string, AssetLoader >() );
+            ObjectMap< string, AssetLoader > loaders = this._loaders.get( type );
+            if ( loaders == null ) this._loaders.put( type, loaders = new ObjectMap< string, AssetLoader >() );
             loaders.put( suffix == null ? "" : suffix, loader );
         }
 
         /** @return the number of loaded assets */
-        public synchronized int getLoadedAssets()
+        public synchronized int GetLoadedAssets()
         {
-            return assetTypes.size;
+            return _assetTypes.size;
         }
 
         /** @return the number of currently queued assets */
-        public synchronized int getQueuedAssets()
+        public synchronized int GetQueuedAssets()
         {
-            return loadQueue.size + tasks.size();
+            return _loadQueue.size + _tasks.size();
         }
 
         /** @return the progress in percent of completion. */
-        public synchronized float getProgress()
+        public synchronized float GetProgress()
         {
-            if ( toLoad == 0 ) return 1;
-            float fractionalLoaded = loaded;
+            if ( _toLoad == 0 ) return 1;
+            float fractionalLoaded = _loaded;
 
-            if ( peakTasks > 0 )
+            if ( _peakTasks > 0 )
             {
-                fractionalLoaded += ( ( peakTasks - tasks.size() ) / ( float )peakTasks );
+                fractionalLoaded += ( ( _peakTasks - _tasks.size() ) / ( float )_peakTasks );
             }
 
-            return Math.min( 1, fractionalLoaded / toLoad );
+            return Math.min( 1, fractionalLoaded / _toLoad );
         }
 
         /** Sets an {@link AssetErrorListener} to be invoked in case loading an asset failed.
 	 * @param listener the listener or null */
-        public synchronized void setErrorListener( AssetErrorListener listener )
+        public synchronized void SetErrorListener( AssetErrorListener listener )
         {
-            this.listener = listener;
+            this._listener = listener;
         }
 
         /** Disposes all assets in the manager and stops all asynchronous loading. */
         @Override
 
-        public synchronized void dispose()
+        public synchronized void Dispose()
         {
             _log.debug( "Disposing." );
-            clear();
-            executor.dispose();
+            Clear();
+            _executor.dispose();
         }
 
         /** Clears and disposes all assets and the preloading queue. */
-        public synchronized void clear()
+        public synchronized void Clear()
         {
-            loadQueue.clear();
+            _loadQueue.clear();
 
-            while ( !update() )
+            while ( !Update() )
                 ;
 
             ObjectIntMap< string > dependencyCount = new ObjectIntMap< string >();
 
-            while ( assetTypes.size > 0 )
+            while ( _assetTypes.size > 0 )
             {
                 // for each asset, figure out how often it was referenced
                 dependencyCount.clear();
-                Array< string > assets = assetTypes.keys().toArray();
+                Array< string > assets = _assetTypes.keys().toArray();
                 for ( string asset :
                 assets)
-                dependencyCount.put( asset, 0 );
+                dependencyCount.put( Asset, 0 );
 
                 for ( string asset :
                 assets) {
-                    Array< string > dependencies = assetDependencies.get( asset );
+                    Array< string > dependencies = _assetDependencies.get( Asset );
 
                     if ( dependencies == null ) continue;
                     for ( string dependency :
@@ -873,69 +877,69 @@ namespace LibGDXSharp.Assets
                 // only dispose of assets that are root assets (not referenced)
                 for ( string asset :
                 assets)
-                if ( dependencyCount.get( asset, 0 ) == 0 ) unload( asset );
+                if ( dependencyCount.get( Asset, 0 ) == 0 ) Unload( Asset );
             }
 
-            this.assets.clear();
-            this.assetTypes.clear();
-            this.assetDependencies.clear();
-            this.loaded    = 0;
-            this.toLoad    = 0;
-            this.peakTasks = 0;
-            this.loadQueue.clear();
-            this.tasks.clear();
+            this._assets.clear();
+            this._assetTypes.clear();
+            this._assetDependencies.clear();
+            this._loaded    = 0;
+            this._toLoad    = 0;
+            this._peakTasks = 0;
+            this._loadQueue.clear();
+            this._tasks.clear();
         }
 
         /** @return the {@link Logger} used by the {@link AssetManager} */
-        public Logger getLogger()
+        public Logger GetLogger()
         {
             return _log;
         }
 
-        public void setLogger( Logger logger )
+        public void SetLogger( Logger logger )
         {
             _log = logger;
         }
 
         /** Returns the reference count of an asset.
 	 * @param fileName */
-        public synchronized int getReferenceCount( string fileName )
+        public synchronized int GetReferenceCount( string fileName )
         {
-            Class type = assetTypes.get( fileName );
+            Class type = _assetTypes.get( fileName );
 
             if ( type == null ) throw new GdxRuntimeException( "Asset not loaded: " + fileName );
 
-            return assets.get( type ).get( fileName ).getRefCount();
+            return _assets.get( type ).get( fileName ).getRefCount();
         }
 
         /** Sets the reference count of an asset.
 	 * @param fileName */
-        public synchronized void setReferenceCount( string fileName, int refCount )
+        public synchronized void SetReferenceCount( string fileName, int refCount )
         {
-            Class type = assetTypes.get( fileName );
+            Class type = _assetTypes.get( fileName );
 
             if ( type == null ) throw new GdxRuntimeException( "Asset not loaded: " + fileName );
-            assets.get( type ).get( fileName ).setRefCount( refCount );
+            _assets.get( type ).get( fileName ).setRefCount( refCount );
         }
 
         /** @return a string containing ref count and dependency information for all assets. */
-        public synchronized string getDiagnostics()
+        public synchronized string GetDiagnostics()
         {
             StringBuilder sb = new StringBuilder( 256 );
             for ( string fileName :
-            assetTypes.keys()) {
+            _assetTypes.keys()) {
                 if ( sb.length() > 0 ) sb.append( "\n" );
-                sb.append( fileName );
+                sb.append( FileName );
                 sb.append( ", " );
 
-                Class               type         = assetTypes.get( fileName );
-                RefCountedContainer assetRef     = assets.get( type ).get( fileName );
-                Array< string >     dependencies = assetDependencies.get( fileName );
+                Class               type         = _assetTypes.get( FileName );
+                RefCountedContainer assetRef     = _assets.get( type ).get( FileName );
+                Array< string >     dependencies = _assetDependencies.get( FileName );
 
                 sb.append( ClassReflection.getSimpleName( type ) );
 
                 sb.append( ", refs: " );
-                sb.append( assetRef.getRefCount() );
+                sb.append( assetRef.GetRefCount() );
 
                 if ( dependencies != null )
                 {
@@ -953,11 +957,11 @@ namespace LibGDXSharp.Assets
             return sb.toString();
         }
 
-        public Array<string> getAssetNames()
+        public Array<string> GetAssetNames()
         {
             lock ( this )
             {
-                return assetTypes.Keys().ToArray();
+                return _assetTypes.Keys().ToArray();
             }
         }
 
@@ -965,7 +969,7 @@ namespace LibGDXSharp.Assets
         {
             lock ( this )
             {
-                Array< string > array = assetDependencies.Get( name );
+                Array< string > array = _assetDependencies.Get( name );
                 return array;
             }
         }
@@ -974,7 +978,7 @@ namespace LibGDXSharp.Assets
         {
             lock ( this )
             {
-                Type type = assetTypes.Get( name );
+                Type type = _assetTypes.Get( name );
                 return type;
             }
         }
