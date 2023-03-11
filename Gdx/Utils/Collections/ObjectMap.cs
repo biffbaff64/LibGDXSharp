@@ -7,7 +7,7 @@ namespace LibGDXSharp.Utils.Collections
     {
         public int Size { get; set; }
 
-        private TK[]  _keyTable;
+        private TK[]? _keyTable;
         private TV[]? _valueTable;
 
         private readonly float _loadFactor;
@@ -46,7 +46,7 @@ namespace LibGDXSharp.Utils.Collections
             public TKe? key;
             public TVe? value;
 
-            public override string ToString()
+            public override string Tostring()
             {
                 return key + " = " + value;
             }
@@ -89,7 +89,7 @@ namespace LibGDXSharp.Utils.Collections
             {
                 throw new ArgumentException( "supplied map._valuetable is null!" );
             }
-            
+
             this._loadFactor = map._loadFactor;
 
             var tableSize = ObjectSet< TK >.TableSize( ( int )( map._keyTable.Length * map._loadFactor ), _loadFactor );
@@ -193,9 +193,6 @@ namespace LibGDXSharp.Utils.Collections
         /// <param name="value"></param>
         private void PutResize( TK key, TV? value )
         {
-            Debug.Assert( _keyTable != null, nameof( _keyTable ) + " != null" );
-            Debug.Assert( _valueTable != null, nameof( _valueTable ) + " != null" );
-
             for ( var i = Place( key );; i = ( i + 1 ) & mask )
             {
                 if ( _keyTable[ i ] == null )
@@ -215,8 +212,6 @@ namespace LibGDXSharp.Utils.Collections
         /// <returns></returns>
         public TV? Get<TT>( TT key ) where TT : TK
         {
-            Debug.Assert( _valueTable != null, nameof( _valueTable ) + " != null" );
-
             var i = LocateKey( key );
 
             return ( i < 0 ) ? default : _valueTable[ i ];
@@ -224,18 +219,20 @@ namespace LibGDXSharp.Utils.Collections
 
         public TV? Get( TK key, TV? defaultValue )
         {
-            Debug.Assert( _valueTable != null, nameof( _valueTable ) + " != null" );
-
             var i = LocateKey( key );
 
             return i < 0 ? defaultValue : _valueTable[ i ];
         }
 
-        public TV Remove( TK key )
+        /// <summary>
+        /// </summary>
+        /// <param name="key"></param>
+        /// <returns></returns>
+        public TV? Remove( TK key )
         {
             var i = LocateKey( key );
 
-            if ( i < 0 ) return null;
+            if ( i < 0 ) return default;
 
             var oldValue = _valueTable[ i ];
 
@@ -256,12 +253,281 @@ namespace LibGDXSharp.Utils.Collections
                 next = ( next + 1 ) & mask;
             }
 
-            _keyTable[ i ]   = null;
-            _valueTable[ i ] = null;
+            _keyTable[ i ]   = default( TK )!;
+            _valueTable[ i ] = default( TV )!;
 
             Size--;
 
             return oldValue;
+        }
+
+        public void Shrink( int maximumCapacity )
+        {
+            if ( maximumCapacity < 0 )
+            {
+                throw new ArgumentException( "maximumCapacity must be >= 0: " + maximumCapacity );
+            }
+
+            int tableSize = TableSize( maximumCapacity, _loadFactor );
+
+            if ( _keyTable.Length > tableSize )
+            {
+                Resize( tableSize );
+            }
+        }
+
+        public void clear( int maximumCapacity )
+        {
+            int tableSize = TableSize( maximumCapacity, _loadFactor );
+
+            if ( _keyTable.Length <= tableSize )
+            {
+                clear();
+
+                return;
+            }
+
+            Size = 0;
+
+            resize( tableSize );
+        }
+
+        public void clear()
+        {
+            if ( Size == 0 ) return;
+            
+            Size = 0;
+            
+            Array.Fill( _keyTable, null );
+            Array.Fill( _valueTable, null );
+        }
+
+        public bool containsValue( object value, bool identity )
+        {
+            V[] valueTable = this.valueTable;
+
+            if ( value == null )
+            {
+                K[] keyTable = this.keyTable;
+
+                for ( int i = valueTable.length - 1; i >= 0; i-- )
+                    if ( keyTable[ i ] != null && valueTable[ i ] == null )
+                        return true;
+            }
+            else if ( identity )
+            {
+                for ( int i = valueTable.length - 1; i >= 0; i-- )
+                    if ( valueTable[ i ] == value )
+                        return true;
+            }
+            else
+            {
+                for ( int i = valueTable.length - 1; i >= 0; i-- )
+                    if ( value.equals( valueTable[ i ] ) )
+                        return true;
+            }
+
+            return false;
+        }
+
+        public bool containsKey( K key )
+        {
+            return locateKey( key ) >= 0;
+        }
+
+        /** Returns the key for the specified value, or null if it is not in the map. Note this traverses the entire map and compares
+	 * every value, which may be an expensive operation.
+	 * @param identity If true, uses == to compare the specified value with values in the map. If false, uses
+	 *           {@link #equals(Object)}. */
+        public K findKey( object value, bool identity )
+        {
+            V[] valueTable = this.valueTable;
+
+            if ( value == null )
+            {
+                K[] keyTable = this.keyTable;
+
+                for ( int i = valueTable.length - 1; i >= 0; i-- )
+                    if ( keyTable[ i ] != null && valueTable[ i ] == null )
+                        return keyTable[ i ];
+            }
+            else if ( identity )
+            {
+                for ( int i = valueTable.length - 1; i >= 0; i-- )
+                    if ( valueTable[ i ] == value )
+                        return keyTable[ i ];
+            }
+            else
+            {
+                for ( int i = valueTable.length - 1; i >= 0; i-- )
+                    if ( value.equals( valueTable[ i ] ) )
+                        return keyTable[ i ];
+            }
+
+            return null;
+        }
+
+        /** Increases the size of the backing array to accommodate the specified number of additional items / loadFactor. Useful before
+	 * adding many items to avoid multiple backing array resizes. */
+        public void ensureCapacity( int additionalCapacity )
+        {
+            int tableSize = tableSize( size + additionalCapacity, loadFactor );
+            if ( keyTable.length < tableSize ) resize( tableSize );
+        }
+
+        void resize( int newSize )
+        {
+            int oldCapacity = keyTable.length;
+            threshold = ( int )( newSize * loadFactor );
+            mask      = newSize - 1;
+            shift     = Long.numberOfLeadingZeros( mask );
+
+            K[] oldKeyTable   = keyTable;
+            V[] oldValueTable = valueTable;
+
+            keyTable   = ( K[] )new Object[ newSize ];
+            valueTable = ( V[] )new Object[ newSize ];
+
+            if ( size > 0 )
+            {
+                for ( int i = 0; i < oldCapacity; i++ )
+                {
+                    K key = oldKeyTable[ i ];
+                    if ( key != null ) putResize( key, oldValueTable[ i ] );
+                }
+            }
+        }
+
+        public int hashCode()
+        {
+            int h          = size;
+            K[] keyTable   = this.keyTable;
+            V[] valueTable = this.valueTable;
+
+            for ( int i = 0, n = keyTable.length; i < n; i++ )
+            {
+                K key = keyTable[ i ];
+
+                if ( key != null )
+                {
+                    h += key.hashCode();
+                    V value                = valueTable[ i ];
+                    if ( value != null ) h += value.hashCode();
+                }
+            }
+
+            return h;
+        }
+
+        public bool equals( object obj )
+        {
+            if ( obj == this ) return true;
+            if ( !( obj instanceof ObjectMap)) return false;
+            ObjectMap              other = ( ObjectMap )obj;
+
+            if ( other.size != size ) return false;
+            K[] keyTable   = this.keyTable;
+            V[] valueTable = this.valueTable;
+
+            for ( int i = 0, n = keyTable.length; i < n; i++ )
+            {
+                K key = keyTable[ i ];
+
+                if ( key != null )
+                {
+                    V value = valueTable[ i ];
+
+                    if ( value == null )
+                    {
+                        if ( other.get( key, dummy ) != null ) return false;
+                    }
+                    else
+                    {
+                        if ( !value.equals( other.get( key ) ) ) return false;
+                    }
+                }
+            }
+
+            return true;
+        }
+
+        /** Uses == for comparison of each value. */
+        public bool equalsIdentity( object obj )
+        {
+            if ( obj == this ) return true;
+            if ( !( obj instanceof ObjectMap)) return false;
+            ObjectMap              other = ( ObjectMap )obj;
+
+            if ( other.size != size ) return false;
+            K[] keyTable   = this.keyTable;
+            V[] valueTable = this.valueTable;
+
+            for ( int i = 0, n = keyTable.length; i < n; i++ )
+            {
+                K key = keyTable[ i ];
+
+                if ( key != null && valueTable[ i ] != other.get( key, dummy ) ) return false;
+            }
+
+            return true;
+        }
+
+        public string tostring( string separator )
+        {
+            return tostring( separator, false );
+        }
+
+        public new string Tostring()
+        {
+            return Tostring( ", ", true );
+        }
+
+        protected string Tostring( string separator, bool braces )
+        {
+            if ( Size == 0 ) return braces ? "{}" : "";
+
+            stringBuilder buffer = new stringBuilder( 32 );
+
+            if ( braces ) buffer.Append( '{' );
+
+            var keyTable   = this._keyTable;
+            var valueTable = this._valueTable;
+
+            int i = _keyTable.Length;
+
+            while ( i-- > 0 )
+            {
+                K key = keyTable[ i ];
+
+                if ( key == null ) continue;
+                buffer.append( key == this ? "(this)" : key );
+                buffer.append( '=' );
+                V value = valueTable[ i ];
+                buffer.append( value == this ? "(this)" : value );
+
+                break;
+            }
+
+            while ( i-- > 0 )
+            {
+                K key = keyTable[ i ];
+
+                if ( key == null ) continue;
+                buffer.append( separator );
+                buffer.append( key == this ? "(this)" : key );
+                buffer.append( '=' );
+                V value = valueTable[ i ];
+                buffer.append( value == this ? "(this)" : value );
+            }
+
+            if ( braces ) buffer.append( '}' );
+
+            return buffer.tostring();
+        }
+
+        public Entries< K, V > iterator()
+        {
+            return entries();
         }
 
         /// <summary>

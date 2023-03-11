@@ -34,21 +34,16 @@ namespace LibGDXSharp.Utils.Collections
         }
 
         /// <summary>
-        /// 
         /// </summary>
         /// <param name="array"></param>
         public Array( Array< T > array ) : this( array.Ordered, array.Size )
         {
             Size = array.Size;
 
-            Debug.Assert( Items != null, nameof( Items ) + " != null" );
-            Debug.Assert( array.Items != null, nameof( array.Items ) + " != null" );
-
             Array.Copy( array.Items, 0, Items, 0, Size );
         }
 
         /// <summary>
-        /// 
         /// </summary>
         /// <param name="array"></param>
         public Array( T[] array ) : this( true, array, 0, array.Length )
@@ -56,7 +51,6 @@ namespace LibGDXSharp.Utils.Collections
         }
 
         /// <summary>
-        /// 
         /// </summary>
         /// <param name="ordered"></param>
         /// <param name="array"></param>
@@ -66,19 +60,14 @@ namespace LibGDXSharp.Utils.Collections
         {
             Size = count;
 
-            Debug.Assert( Items != null, nameof( Items ) + " != null" );
-
             Array.Copy( array, start, Items, 0, Size );
         }
 
         /// <summary>
-        /// 
         /// </summary>
         /// <param name="value"></param>
         public void Add( T value )
         {
-            Debug.Assert( Items != null, nameof( Items ) + " != null" );
-
             if ( Size == Items.Length )
             {
                 Items = Resize( System.Math.Max( 8, ( int )( Size * 1.75f ) ) );
@@ -88,7 +77,6 @@ namespace LibGDXSharp.Utils.Collections
         }
 
         /// <summary>
-        /// 
         /// </summary>
         /// <param name="array"></param>
         public void AddAll( Array< T > array )
@@ -97,7 +85,6 @@ namespace LibGDXSharp.Utils.Collections
         }
 
         /// <summary>
-        /// 
         /// </summary>
         /// <param name="array"></param>
         /// <param name="start"></param>
@@ -111,13 +98,10 @@ namespace LibGDXSharp.Utils.Collections
                     ( "start + count must be <= size - " + start + " + " + count + " <= " + array.Size );
             }
 
-            Debug.Assert( array.Items != null, "array.Items != null" );
-
             AddAll( array.Items, start, count );
         }
 
         /// <summary>
-        /// 
         /// </summary>
         /// <param name="array"></param>
         public void AddAll( params T[] array )
@@ -126,7 +110,6 @@ namespace LibGDXSharp.Utils.Collections
         }
 
         /// <summary>
-        /// 
         /// </summary>
         /// <param name="array"></param>
         /// <param name="start"></param>
@@ -134,8 +117,6 @@ namespace LibGDXSharp.Utils.Collections
         public void AddAll( T[] array, int start, int count )
         {
             var sizeNeeded = Size + count;
-
-            Debug.Assert( Items != null, nameof( Items ) + " != null" );
 
             if ( sizeNeeded > Items.Length )
             {
@@ -160,8 +141,6 @@ namespace LibGDXSharp.Utils.Collections
                 throw new ArgumentOutOfRangeException( "index can't be >= size - " + index + " >= " + Size );
             }
 
-            Debug.Assert( Items != null, nameof( Items ) + " != null" );
-
             return Items[ index ];
         }
 
@@ -178,8 +157,6 @@ namespace LibGDXSharp.Utils.Collections
                 throw new ArgumentOutOfRangeException( "index can't be >= size - " + index + " >= " + Size );
             }
 
-            Debug.Assert( Items != null, nameof( Items ) + " != null" );
-
             Items[ index ] = value;
         }
 
@@ -195,8 +172,6 @@ namespace LibGDXSharp.Utils.Collections
             {
                 throw new ArgumentOutOfRangeException( "index can't be > size - " + index + " > " + Size );
             }
-
-            Debug.Assert( Items != null, nameof( Items ) + " != null" );
 
             if ( Size == Items.Length )
             {
@@ -216,14 +191,17 @@ namespace LibGDXSharp.Utils.Collections
             Items[ index ] = value;
         }
 
+        /// <summary>
+        /// </summary>
+        /// <param name="index"></param>
+        /// <param name="count"></param>
+        /// <exception cref="IndexOutOfRangeException"></exception>
         public void InsertRange( int index, int count )
         {
             if ( index > Size )
             {
                 throw new IndexOutOfRangeException( "index can't be > size - " + index + " > " + Size );
             }
-
-            Debug.Assert( Items != null, nameof( Items ) + " != null" );
 
             var sizeNeeded = Size + count;
 
@@ -249,8 +227,6 @@ namespace LibGDXSharp.Utils.Collections
                 throw new ArgumentOutOfRangeException( "second can't be >= size - " + second + " >= " + Size );
             }
 
-            Debug.Assert( Items != null, nameof( Items ) + " != null" );
-
             ( Items[ first ], Items[ second ] ) = ( Items[ second ], Items[ first ] );
         }
 
@@ -261,8 +237,6 @@ namespace LibGDXSharp.Utils.Collections
         /// <returns></returns>
         public bool Contains( T value )
         {
-            Debug.Assert( Items != null, nameof( Items ) + " != null" );
-
             var i = Size - 1;
 
             while ( i >= 0 )
@@ -283,8 +257,6 @@ namespace LibGDXSharp.Utils.Collections
         /// <returns></returns>
         public int IndexOf( T value )
         {
-            Debug.Assert( Items != null, nameof( Items ) + " != null" );
-
             if ( value == null )
             {
                 for ( int i = 0, n = Size; i < n; i++ )
@@ -316,8 +288,6 @@ namespace LibGDXSharp.Utils.Collections
         /// <returns></returns>
         public int LastIndexOf( T value )
         {
-            Debug.Assert( Items != null, nameof( Items ) + " != null" );
-
             for ( var i = Size - 1; i >= 0; i-- )
             {
                 if ( value!.Equals( Items[ i ] ) )
@@ -336,8 +306,6 @@ namespace LibGDXSharp.Utils.Collections
         /// <returns></returns>
         public bool RemoveValue( T value )
         {
-            Debug.Assert( Items != null, nameof( Items ) + " != null" );
-
             for ( int i = 0, n = Size; i < n; i++ )
             {
                 if ( value!.Equals( Items[ i ] ) )
@@ -363,8 +331,6 @@ namespace LibGDXSharp.Utils.Collections
             {
                 throw new ArgumentOutOfRangeException( "index can't be >= size - " + index + " >= " + Size );
             }
-
-            Debug.Assert( Items != null, nameof( Items ) + " != null" );
 
             var value = Items[ index ];
 
@@ -396,8 +362,6 @@ namespace LibGDXSharp.Utils.Collections
                 throw new ArgumentOutOfRangeException( "start can't be > end - " + start + " > " + end );
             }
 
-            Debug.Assert( Items != null, nameof( Items ) + " != null" );
-
             var count = end - start + 1;
 
             if ( Ordered )
@@ -421,8 +385,6 @@ namespace LibGDXSharp.Utils.Collections
         {
             var size      = this.Size;
             var startSize = size;
-
-            Debug.Assert( Items != null, nameof( Items ) + " != null" );
 
             for ( int i = 0, n = array.Size; i < n; i++ )
             {
@@ -454,8 +416,6 @@ namespace LibGDXSharp.Utils.Collections
                 throw new IndexOutOfRangeException( "Array is empty." );
             }
 
-            Debug.Assert( Items != null, nameof( Items ) + " != null" );
-
             --Size;
 
             var item = Items[ Size ];
@@ -471,8 +431,6 @@ namespace LibGDXSharp.Utils.Collections
         /// <exception cref="NullReferenceException">Thrown if the array size is zero.</exception>
         public T Peek()
         {
-            Debug.Assert( Items != null, nameof( Items ) + " != null" );
-
             if ( Size == 0 )
             {
                 throw new NullReferenceException( "Array is empty." );
@@ -632,8 +590,6 @@ namespace LibGDXSharp.Utils.Collections
         /// <returns></returns>
         public IEnumerable< T > Select( IPredicate< T > predicate )
         {
-            Debug.Assert( Items != null, nameof( Items ) + " != null" );
-
             if ( _predicateIEnumerable == null )
             {
                 _predicateIEnumerable = new PredicateIterable< T >( Items, predicate );
@@ -652,8 +608,6 @@ namespace LibGDXSharp.Utils.Collections
         /// <param name="newSize"></param>
         public void Truncate( int newSize )
         {
-            Debug.Assert( Items != null, nameof( Items ) + " != null" );
-
             if ( ( Items == null ) || ( Size <= newSize ) ) return;
 
             for ( var i = newSize; i < Size; i++ )
@@ -676,8 +630,6 @@ namespace LibGDXSharp.Utils.Collections
 
         public T[] ToArray()
         {
-            Debug.Assert( Items != null, nameof( Items ) + " != null" );
-
             var memberInfo = Items.GetType().BaseType;
 
             return memberInfo != null
@@ -720,8 +672,6 @@ namespace LibGDXSharp.Utils.Collections
 
         public new bool Equals( object obj )
         {
-            Debug.Assert( Items != null, nameof( Items ) + " != null" );
-
             if ( Items == null ) return false;
 
             if ( obj == this ) return true;
