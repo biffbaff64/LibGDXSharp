@@ -1,4 +1,4 @@
-﻿namespace LibGDXSharp
+﻿namespace LibGDXSharp.Core
 {
     /// <summary>
     /// The ApplicationLogger provides an interface for a LibGDX Application to

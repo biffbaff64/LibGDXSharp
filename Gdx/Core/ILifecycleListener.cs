@@ -1,4 +1,4 @@
-﻿namespace LibGDXSharp
+﻿namespace LibGDXSharp.Core
 {
     /// <summary>
     /// An ILifecycleListener can be added to an Application via

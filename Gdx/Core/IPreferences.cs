@@ -1,4 +1,4 @@
-﻿namespace LibGDXSharp
+﻿namespace LibGDXSharp.Core
 {
     /// <summary>
     /// A Preference instance is a hash map holding different values. It is stored

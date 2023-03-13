@@ -1,4 +1,4 @@
-﻿namespace LibGDXSharp
+﻿namespace LibGDXSharp.Core
 {
     public interface IApplicationListener
     {

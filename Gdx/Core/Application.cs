@@ -1,4 +1,4 @@
-﻿namespace LibGDXSharp
+﻿namespace LibGDXSharp.Core
 {
     // TODO: #1 Update this as LibGDXSharp is desktop only.
     // TODO: #2 The Java LibGDX implements this as an interface. LibGDXSharp converts this to an abstract class. 

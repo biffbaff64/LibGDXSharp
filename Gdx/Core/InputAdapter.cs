@@ -1,4 +1,4 @@
-﻿namespace LibGDXSharp
+﻿namespace LibGDXSharp.Core
 {
     /// <summary>
     /// An adapter class for <see cref="IInputProcessor"/>.

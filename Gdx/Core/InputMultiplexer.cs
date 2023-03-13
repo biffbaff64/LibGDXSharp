@@ -1,6 +1,6 @@
 ﻿using LibGDXSharp.Utils.Collections;
 
-namespace LibGDXSharp
+namespace LibGDXSharp.Core
 {
     public class InputMultiplexer : IInputProcessor
     {

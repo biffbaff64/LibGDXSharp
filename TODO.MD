@@ -525,6 +525,14 @@ UTILS/COMPRESSION
             -      - Decoder
             -      - Encoder
 
+UTILS/EXCEPTIONS
+----------------
+    - Done - GdxREuntimeException
+    - Done - IllegalStateException
+    - Done - NoSuchElementException
+    - Done - NumberFormatException
+    - Done - SerializationException
+
 UTILS/JSON
 ----------
     -      - IBaseJsonReader

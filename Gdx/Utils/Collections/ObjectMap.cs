@@ -7,23 +7,25 @@ namespace LibGDXSharp.Utils.Collections
     {
         public int Size { get; set; }
 
-        private TK[]? _keyTable;
-        private TV[]? _valueTable;
+        internal TK[]? _keyTable;
+        internal TV[]? _valueTable;
 
-        private readonly float _loadFactor;
-        private readonly int   _threshold;
+        private float _loadFactor;
+        private int   _threshold;
+
+        private readonly object? _dummy = new object();
 
         /// <summary>
         /// Used by <see cref="Place"/> to bit shift the upper bits of a <code>long</code>
         /// into a usable range (greater than or equal to 0 and less than or equal to
-        /// <see cref="mask"/>). The shift can be negative, which is convenient to match the
+        /// <see cref="_mask"/>). The shift can be negative, which is convenient to match the
         /// number of bits in mask: if mask is a 7-bit number, a shift of -7 shifts the upper
         /// 7 bits into the lowest 7 positions. This class sets the shift &gt; 32 and &lt; 64,
         /// which if used with an int will still move the upper bits of an int to the lower bits.
-        /// <see cref="mask"/>) can also be used to mask the low bits of a number, which may
+        /// <see cref="_mask"/>) can also be used to mask the low bits of a number, which may
         /// be faster for some hashcodes, if <see cref="Place"/> is overridden.
         /// </summary>
-        protected readonly int shift;
+        private int _shift;
 
         /// <summary>
         /// A bitmask used to confine hashcodes to the size of the table. Must be all
@@ -31,29 +33,16 @@ namespace LibGDXSharp.Utils.Collections
         /// If <see cref="Place"/> is overriden, this can be used instead of <see cref="Shift"/>
         /// to isolate usable bits of a hash.
         /// </summary>
-        protected readonly int mask;
+        internal int _mask;
 
-        [NonSerialized] private Entries? _entries1, _entries2;
-        [NonSerialized] private Values?  _values1,  _values2;
-        [NonSerialized] private Keys?    _keys1,    _keys2;
-
-        /// <summary>
-        /// </summary>
-        /// <typeparam name="TKe"></typeparam>
-        /// <typeparam name="TVe"></typeparam>
-        public class Entry<TKe, TVe>
-        {
-            public TKe? key;
-            public TVe? value;
-
-            public override string Tostring()
-            {
-                return key + " = " + value;
-            }
-        }
+        [NonSerialized] private Entries? _entries1;
+        [NonSerialized] private Entries? _entries2;
+        [NonSerialized] private Values?  _values1;
+        [NonSerialized] private Values?  _values2;
+        [NonSerialized] private Keys?    _keys1;
+        [NonSerialized] private Keys?    _keys2;
 
         /// <summary>
-        /// 
         /// </summary>
         /// <param name="initialCapacity"></param>
         /// <param name="loadFactor"></param>
@@ -69,8 +58,8 @@ namespace LibGDXSharp.Utils.Collections
             var tableSize = ObjectSet< TK >.TableSize( initialCapacity, loadFactor );
 
             _threshold = ( int )( tableSize * loadFactor );
-            mask       = tableSize - 1;
-            shift      = int.LeadingZeroCount( mask );
+            _mask      = tableSize - 1;
+            _shift     = int.LeadingZeroCount( _mask );
 
             _keyTable   = new TK[ tableSize ];
             _valueTable = new TV[ tableSize ];
@@ -92,11 +81,15 @@ namespace LibGDXSharp.Utils.Collections
 
             this._loadFactor = map._loadFactor;
 
-            var tableSize = ObjectSet< TK >.TableSize( ( int )( map._keyTable.Length * map._loadFactor ), _loadFactor );
+            var tableSize = ObjectSet< TK >.TableSize
+                (
+                 ( int )( map._keyTable!.Length * map._loadFactor ),
+                 _loadFactor
+                );
 
             _threshold = ( int )( tableSize * _loadFactor );
-            mask       = tableSize - 1;
-            shift      = int.LeadingZeroCount( mask );
+            _mask      = tableSize - 1;
+            _shift     = int.LeadingZeroCount( _mask );
 
             _keyTable   = new TK[ tableSize ];
             _valueTable = new TV[ tableSize ];
@@ -109,18 +102,18 @@ namespace LibGDXSharp.Utils.Collections
 
         /// <summary>
         /// Returns an index greater than or equal to 0 and less than or equal
-        /// to <see cref="mask"/> for the specified <code>item</code>.
+        /// to <see cref="_mask"/> for the specified <code>item</code>.
         /// </summary>
         /// <param name="item"></param>
         /// <returns></returns>
-        protected virtual int Place( TK item )
+        public virtual int Place( TK item )
         {
             if ( item == null )
             {
                 throw new ArgumentException( "item cannot be null!" );
             }
 
-            return ( int )( ( ( ulong )item.GetHashCode() * 0x9E3779B97F4A7C15L ) >>> shift );
+            return ( int )( ( ( ulong )item.GetHashCode() * 0x9E3779B97F4A7C15L ) >>> _shift );
         }
 
         /// <summary>
@@ -132,7 +125,9 @@ namespace LibGDXSharp.Utils.Collections
         {
             if ( key == null ) throw new ArgumentException( "key cannot be null." );
 
-            for ( var i = Place( key );; i = ( i + 1 ) & mask )
+            if ( _keyTable == null ) throw new NullReferenceException( "_keyTable is null" );
+
+            for ( var i = Place( key );; i = ( i + 1 ) & _mask )
             {
                 var other = _keyTable[ i ];
 
@@ -143,19 +138,26 @@ namespace LibGDXSharp.Utils.Collections
         }
 
         /// <summary>
+        /// Replaces the value associated with the specified key,
+        /// and returns the old value.
+        /// If the key is not found, the value is added at the end
+        /// of the map and null is returned.
         /// </summary>
         /// <param name="key"></param>
         /// <param name="value"></param>
         /// <returns></returns>
         public TV? Put( TK key, TV? value )
         {
+            if ( _keyTable == null ) throw new NullReferenceException( "Put(): _keyTable is null" );
+            if ( _valueTable == null ) throw new NullReferenceException( "Put(): _valueTable is null" );
+
             var i = LocateKey( key );
 
             if ( i >= 0 )
             {
                 // Existing key was found.
                 var oldValue = _valueTable[ i ];
-                _valueTable[ i ] = value;
+                _valueTable[ i ] = value!;
 
                 return oldValue;
             }
@@ -187,18 +189,52 @@ namespace LibGDXSharp.Utils.Collections
 
         /// <summary>
         /// </summary>
+        /// <param name="newSize"></param>
+        void Resize( int newSize )
+        {
+            var oldCapacity = _keyTable!.Length;
+            _threshold = ( int )( newSize * _loadFactor );
+
+            _mask  = newSize - 1;
+            _shift = int.LeadingZeroCount( _mask );
+
+            var oldKeyTable   = _keyTable;
+            var oldValueTable = _valueTable;
+
+            _keyTable   = new TK[ newSize ];
+            _valueTable = new TV[ newSize ];
+
+            if ( Size > 0 )
+            {
+                for ( var i = 0; i < oldCapacity; i++ )
+                {
+                    var key = oldKeyTable[ i ];
+
+                    if ( key != null )
+                    {
+                        PutResize( key, oldValueTable![ i ] );
+                    }
+                }
+            }
+        }
+
+        /// <summary>
+        /// </summary>
         /// <remarks>Skips checks for existing keys.</remarks>
-        /// <remarks>Doesn't increment Size.</remarks>
+        /// <remarks>
+        /// Doesn't increment Size. This method is actually a utility
+        /// method for <see cref="Resize"/>
+        /// </remarks>
         /// <param name="key"></param>
         /// <param name="value"></param>
         private void PutResize( TK key, TV? value )
         {
-            for ( var i = Place( key );; i = ( i + 1 ) & mask )
+            for ( var i = Place( key );; i = ( i + 1 ) & _mask )
             {
-                if ( _keyTable[ i ] == null )
+                if ( _keyTable![ i ] == null )
                 {
-                    _keyTable[ i ]   = key;
-                    _valueTable[ i ] = value!;
+                    _keyTable[ i ]    = key;
+                    _valueTable![ i ] = value!;
 
                     return;
                 }
@@ -214,14 +250,19 @@ namespace LibGDXSharp.Utils.Collections
         {
             var i = LocateKey( key );
 
-            return ( i < 0 ) ? default : _valueTable[ i ];
+            return ( i < 0 ) ? default : _valueTable![ i ];
         }
 
+        /// <summary>
+        /// </summary>
+        /// <param name="key"></param>
+        /// <param name="defaultValue"></param>
+        /// <returns></returns>
         public TV? Get( TK key, TV? defaultValue )
         {
             var i = LocateKey( key );
 
-            return i < 0 ? defaultValue : _valueTable[ i ];
+            return i < 0 ? defaultValue : _valueTable![ i ];
         }
 
         /// <summary>
@@ -230,19 +271,22 @@ namespace LibGDXSharp.Utils.Collections
         /// <returns></returns>
         public TV? Remove( TK key )
         {
+            if ( _keyTable == null ) throw new NullReferenceException( "Remove(): _keyTable is null" );
+            if ( _valueTable == null ) throw new NullReferenceException( "Remove(): _valueTable is null" );
+
             var i = LocateKey( key );
 
             if ( i < 0 ) return default;
 
             var oldValue = _valueTable[ i ];
 
-            var next = ( i + 1 ) & mask;
+            var next = ( i + 1 ) & _mask;
 
             while ( ( key = _keyTable[ next ] ) != null )
             {
                 var placement = Place( key );
 
-                if ( ( ( next - placement ) & mask ) > ( ( i - placement ) & mask ) )
+                if ( ( ( next - placement ) & _mask ) > ( ( i - placement ) & _mask ) )
                 {
                     _keyTable[ i ]   = key;
                     _valueTable[ i ] = _valueTable[ next ];
@@ -250,7 +294,7 @@ namespace LibGDXSharp.Utils.Collections
                     i = next;
                 }
 
-                next = ( next + 1 ) & mask;
+                next = ( next + 1 ) & _mask;
             }
 
             _keyTable[ i ]   = default( TK )!;
@@ -261,6 +305,10 @@ namespace LibGDXSharp.Utils.Collections
             return oldValue;
         }
 
+        /// <summary>
+        /// </summary>
+        /// <param name="maximumCapacity"></param>
+        /// <exception cref="ArgumentException"></exception>
         public void Shrink( int maximumCapacity )
         {
             if ( maximumCapacity < 0 )
@@ -270,180 +318,198 @@ namespace LibGDXSharp.Utils.Collections
 
             int tableSize = TableSize( maximumCapacity, _loadFactor );
 
+            Debug.Assert( _keyTable != null, nameof( _keyTable ) + " != null" );
+
             if ( _keyTable.Length > tableSize )
             {
                 Resize( tableSize );
             }
         }
 
-        public void clear( int maximumCapacity )
+        /// <summary>
+        /// </summary>
+        /// <param name="maximumCapacity"></param>
+        public void Clear( int maximumCapacity )
         {
             int tableSize = TableSize( maximumCapacity, _loadFactor );
 
+            Debug.Assert( _keyTable != null, nameof( _keyTable ) + " != null" );
+
             if ( _keyTable.Length <= tableSize )
             {
-                clear();
+                Clear();
 
                 return;
             }
 
             Size = 0;
 
-            resize( tableSize );
+            Resize( tableSize );
         }
 
-        public void clear()
+        /// <summary>
+        /// </summary>
+        public void Clear()
         {
             if ( Size == 0 ) return;
-            
+
             Size = 0;
-            
-            Array.Fill( _keyTable, null );
-            Array.Fill( _valueTable, null );
+
+            Debug.Assert( _keyTable != null, nameof( _keyTable ) + " != null" );
+            Debug.Assert( _valueTable != null, nameof( _valueTable ) + " != null" );
+
+            Array.Clear( _keyTable );
+            Array.Clear( _valueTable );
         }
 
-        public bool containsValue( object value, bool identity )
+        /// <summary>
+        /// </summary>
+        /// <param name="value"></param>
+        /// <param name="identity"></param>
+        /// <returns></returns>
+        public bool ContainsValue( object? value, bool identity )
         {
-            V[] valueTable = this.valueTable;
+            Debug.Assert( _keyTable != null, nameof( _keyTable ) + " != null" );
+            Debug.Assert( _valueTable != null, nameof( _valueTable ) + " != null" );
 
             if ( value == null )
             {
-                K[] keyTable = this.keyTable;
-
-                for ( int i = valueTable.length - 1; i >= 0; i-- )
-                    if ( keyTable[ i ] != null && valueTable[ i ] == null )
+                for ( var i = _valueTable.Length - 1; i >= 0; i-- )
+                {
+                    if ( _keyTable[ i ] != null && _valueTable[ i ] == null )
+                    {
                         return true;
-            }
-            else if ( identity )
-            {
-                for ( int i = valueTable.length - 1; i >= 0; i-- )
-                    if ( valueTable[ i ] == value )
-                        return true;
+                    }
+                }
             }
             else
             {
-                for ( int i = valueTable.length - 1; i >= 0; i-- )
-                    if ( value.equals( valueTable[ i ] ) )
+                for ( var i = _valueTable.Length - 1; i >= 0; i-- )
+                {
+                    if ( value.Equals( _valueTable[ i ] ) )
+                    {
                         return true;
+                    }
+                }
             }
 
             return false;
         }
 
-        public bool containsKey( K key )
+        /// <summary>
+        /// </summary>
+        /// <param name="key"></param>
+        /// <returns></returns>
+        public bool ContainsKey( TK key )
         {
-            return locateKey( key ) >= 0;
+            return LocateKey( key ) >= 0;
         }
 
-        /** Returns the key for the specified value, or null if it is not in the map. Note this traverses the entire map and compares
-	 * every value, which may be an expensive operation.
-	 * @param identity If true, uses == to compare the specified value with values in the map. If false, uses
-	 *           {@link #equals(Object)}. */
-        public K findKey( object value, bool identity )
+        /// <summary>
+        /// Returns the key for the specified value, or null if it is not in the map.
+        /// Note this traverses the entire map and compares every value, which may be
+        /// an expensive operation.
+        /// </summary>
+        public TK? FindKey( object? value )
         {
-            V[] valueTable = this.valueTable;
-
             if ( value == null )
             {
-                K[] keyTable = this.keyTable;
-
-                for ( int i = valueTable.length - 1; i >= 0; i-- )
-                    if ( keyTable[ i ] != null && valueTable[ i ] == null )
-                        return keyTable[ i ];
-            }
-            else if ( identity )
-            {
-                for ( int i = valueTable.length - 1; i >= 0; i-- )
-                    if ( valueTable[ i ] == value )
-                        return keyTable[ i ];
+                for ( var i = _valueTable!.Length - 1; i >= 0; i-- )
+                {
+                    if ( _keyTable![ i ] != null && _valueTable[ i ] == null )
+                    {
+                        return _keyTable[ i ];
+                    }
+                }
             }
             else
             {
-                for ( int i = valueTable.length - 1; i >= 0; i-- )
-                    if ( value.equals( valueTable[ i ] ) )
-                        return keyTable[ i ];
-            }
-
-            return null;
-        }
-
-        /** Increases the size of the backing array to accommodate the specified number of additional items / loadFactor. Useful before
-	 * adding many items to avoid multiple backing array resizes. */
-        public void ensureCapacity( int additionalCapacity )
-        {
-            int tableSize = tableSize( size + additionalCapacity, loadFactor );
-            if ( keyTable.length < tableSize ) resize( tableSize );
-        }
-
-        void resize( int newSize )
-        {
-            int oldCapacity = keyTable.length;
-            threshold = ( int )( newSize * loadFactor );
-            mask      = newSize - 1;
-            shift     = Long.numberOfLeadingZeros( mask );
-
-            K[] oldKeyTable   = keyTable;
-            V[] oldValueTable = valueTable;
-
-            keyTable   = ( K[] )new Object[ newSize ];
-            valueTable = ( V[] )new Object[ newSize ];
-
-            if ( size > 0 )
-            {
-                for ( int i = 0; i < oldCapacity; i++ )
+                for ( var i = _valueTable!.Length - 1; i >= 0; i-- )
                 {
-                    K key = oldKeyTable[ i ];
-                    if ( key != null ) putResize( key, oldValueTable[ i ] );
+                    if ( value.Equals( _valueTable[ i ] ) )
+                    {
+                        return _keyTable![ i ];
+                    }
                 }
             }
+
+            return default;
         }
 
-        public int hashCode()
+        /// <summary>
+        /// Increases the size of the backing array to accommodate the specified number
+        /// of additional items / loadFactor. Useful before adding many items to avoid
+        /// multiple backing array resizes.
+        /// </summary>
+        public void EnsureCapacity( int additionalCapacity )
         {
-            int h          = size;
-            K[] keyTable   = this.keyTable;
-            V[] valueTable = this.valueTable;
+            int tableSize = TableSize( Size + additionalCapacity, _loadFactor );
 
-            for ( int i = 0, n = keyTable.length; i < n; i++ )
+            if ( _keyTable!.Length < tableSize )
             {
-                K key = keyTable[ i ];
+                Resize( tableSize );
+            }
+        }
+
+        /// <summary>
+        /// </summary>
+        /// <returns></returns>
+        public int HashCode()
+        {
+            var h = Size;
+
+            for ( int i = 0, n = _keyTable!.Length; i < n; i++ )
+            {
+                var key = _keyTable[ i ];
 
                 if ( key != null )
                 {
-                    h += key.hashCode();
-                    V value                = valueTable[ i ];
-                    if ( value != null ) h += value.hashCode();
+                    h += key.HashCode();
+
+                    var value = _valueTable![ i ];
+
+                    if ( value != null )
+                    {
+                        h += value.HashCode();
+                    }
                 }
             }
 
             return h;
         }
 
-        public bool equals( object obj )
+        /// <summary>
+        /// </summary>
+        /// <param name="obj"></param>
+        /// <returns></returns>
+        public new bool Equals( object obj )
         {
             if ( obj == this ) return true;
-            if ( !( obj instanceof ObjectMap)) return false;
-            ObjectMap              other = ( ObjectMap )obj;
 
-            if ( other.size != size ) return false;
-            K[] keyTable   = this.keyTable;
-            V[] valueTable = this.valueTable;
-
-            for ( int i = 0, n = keyTable.length; i < n; i++ )
+            if ( obj is not ObjectMap< TK, TV > )
             {
-                K key = keyTable[ i ];
+                return false;
+            }
+
+            var other = ( ObjectMap< TK, TV > )obj;
+
+            if ( other.Size != Size ) return false;
+
+            for ( int i = 0, n = _keyTable!.Length; i < n; i++ )
+            {
+                var key = _keyTable[ i ];
 
                 if ( key != null )
                 {
-                    V value = valueTable[ i ];
+                    var value = _valueTable![ i ];
 
                     if ( value == null )
                     {
-                        if ( other.get( key, dummy ) != null ) return false;
+                        if ( other.Get( key, ( TV? )_dummy ) != null ) return false;
                     }
                     else
                     {
-                        if ( !value.equals( other.get( key ) ) ) return false;
+                        if ( !value.Equals( other.Get( key ) ) ) return false;
                     }
                 }
             }
@@ -451,42 +517,21 @@ namespace LibGDXSharp.Utils.Collections
             return true;
         }
 
-        /** Uses == for comparison of each value. */
-        public bool equalsIdentity( object obj )
+        public string ToString( string separator )
         {
-            if ( obj == this ) return true;
-            if ( !( obj instanceof ObjectMap)) return false;
-            ObjectMap              other = ( ObjectMap )obj;
-
-            if ( other.size != size ) return false;
-            K[] keyTable   = this.keyTable;
-            V[] valueTable = this.valueTable;
-
-            for ( int i = 0, n = keyTable.length; i < n; i++ )
-            {
-                K key = keyTable[ i ];
-
-                if ( key != null && valueTable[ i ] != other.get( key, dummy ) ) return false;
-            }
-
-            return true;
+            return ToString( separator, false );
         }
 
-        public string tostring( string separator )
+        public new string ToString()
         {
-            return tostring( separator, false );
+            return ToString( ", ", true );
         }
 
-        public new string Tostring()
-        {
-            return Tostring( ", ", true );
-        }
-
-        protected string Tostring( string separator, bool braces )
+        protected string ToString( string separator, bool braces )
         {
             if ( Size == 0 ) return braces ? "{}" : "";
 
-            stringBuilder buffer = new stringBuilder( 32 );
+            var buffer = new StringBuilder( 32 );
 
             if ( braces ) buffer.Append( '{' );
 
@@ -525,11 +570,6 @@ namespace LibGDXSharp.Utils.Collections
             return buffer.tostring();
         }
 
-        public Entries< K, V > iterator()
-        {
-            return entries();
-        }
-
         /// <summary>
         /// Helper method.
         /// </summary>
@@ -548,6 +588,32 @@ namespace LibGDXSharp.Utils.Collections
             return Size == 0;
         }
 
+        public Keys< TK > Keys()
+        {
+            if ( Collections.AllocateIterators ) return new Keys( this );
+
+            if ( keys1 == null )
+            {
+                keys1 = new Keys( this );
+                keys2 = new Keys( this );
+            }
+
+            if ( !keys1.valid )
+            {
+                keys1.reset();
+                keys1.valid = true;
+                keys2.valid = false;
+
+                return keys1;
+            }
+
+            keys2.reset();
+            keys2.valid = true;
+            keys1.valid = false;
+
+            return keys2;
+        }
+
         public IEnumerator< Entry< TK, TV > > GetEnumerator()
         {
             yield break;
@@ -559,15 +625,206 @@ namespace LibGDXSharp.Utils.Collections
         }
     }
 
-    internal class Entries
+    /// <summary>
+    /// </summary>
+    /// <typeparam name="TKe"></typeparam>
+    /// <typeparam name="TVe"></typeparam>
+    public class Entry<TKe, TVe>
+    {
+        public TKe? key;
+        public TVe? value;
+
+        public override string ToString()
+        {
+            return key + " = " + value;
+        }
+    }
+
+    /// <summary>
+    /// </summary>
+    /// <typeparam name="TKm"></typeparam>
+    /// <typeparam name="TVm"></typeparam>
+    /// <typeparam name="TI"></typeparam>
+    public abstract class MapIterator<TKm, TVm, TI> //: Iterable<TI>, Iterator<TI>
+    {
+        protected bool                  hasNext;
+        protected ObjectMap< TKm, TVm > map;
+        protected bool                  valid        = true;
+        protected int                   nextIndex    = 0;
+        protected int                   currentIndex = 0;
+
+        protected MapIterator( ObjectMap< TKm, TVm > map )
+        {
+            this.map = map;
+            Reset();
+        }
+
+        public void Reset()
+        {
+            currentIndex = -1;
+            nextIndex    = -1;
+
+            FindNextIndex();
+        }
+
+        protected void FindNextIndex()
+        {
+            for ( var n = map._keyTable!.Length; ++nextIndex < n; )
+            {
+                if ( map._keyTable[ nextIndex ] != null )
+                {
+                    hasNext = true;
+
+                    return;
+                }
+            }
+
+            hasNext = false;
+        }
+
+        public void Remove()
+        {
+            var i = currentIndex;
+
+            if ( i < 0 ) throw new IllegalStateException( "next must be called before remove." );
+
+            var mask = map._mask;
+            var next = ( i + 1 ) & mask;
+            TKm key;
+
+            while ( ( key = map._keyTable![ next ] ) != null )
+            {
+                var placement = map.Place( key );
+
+                if ( ( ( next - placement ) & mask ) > ( ( i - placement ) & mask ) )
+                {
+                    map._keyTable[ i ]    = key;
+                    map._valueTable![ i ] = map._valueTable[ next ];
+
+                    i = next;
+                }
+
+                next = ( next + 1 ) & mask;
+            }
+
+            map._keyTable[ i ]    = default!;
+            map._valueTable![ i ] = default!;
+
+            map.Size--;
+
+            if ( i != currentIndex )
+            {
+                --nextIndex;
+            }
+
+            currentIndex = -1;
+        }
+    }
+
+    /// <summary>
+    /// </summary>
+    /// <typeparam name="TKe"></typeparam>
+    /// <typeparam name="TVe"></typeparam>
+    public class Entries<TKe, TVe> : MapIterator< TKe, TVe, Entry< TKe, TVe > >
+    {
+        private readonly Entry< TKe, TVe > _entry = new Entry< TKe, TVe >();
+
+        public Entries( ObjectMap< TKe, TVe > map ) : base( map )
+        {
+        }
+
+        /// <summary>
+        /// Note the same entry instance is returned each time this method is called.
+        /// </summary>
+        public Entry< TKe, TVe > Next()
+        {
+            if ( !hasNext ) throw new NoSuchElementException();
+
+            if ( !valid ) throw new GdxRuntimeException( "#iterator() cannot be used nested." );
+
+            _entry.key   = map._keyTable![ nextIndex ];
+            _entry.value = map._valueTable![ nextIndex ];
+
+            currentIndex = nextIndex;
+
+            FindNextIndex();
+
+            return _entry;
+        }
+
+        public bool HasNext()
+        {
+            if ( !valid ) throw new GdxRuntimeException( "#iterator() cannot be used nested." );
+
+            return hasNext;
+        }
+
+        public Entries< TKe, TVe > Iterator()
+        {
+            return this;
+        }
+    }
+
+    /// <summary>
+    /// </summary>
+    /// <typeparam name="TVv"></typeparam>
+    public class Values<TVv> : MapIterator< object, TVv, TVv >
     {
     }
 
-    internal class Values
+    /// <summary>
+    /// </summary>
+    public class Keys<TKk> : MapIterator< TKk, object, TKk >
     {
-    }
+        public Keys( ObjectMap< TKk, object > map ) : base( ( ObjectMap< TKk, object > )map )
+        {
+        }
 
-    internal class Keys
-    {
+        public bool HasNext()
+        {
+            if ( !valid ) throw new GdxRuntimeException( "#iterator() cannot be used nested." );
+
+            return hasNext;
+        }
+
+        public TKk Next()
+        {
+            if ( !hasNext ) throw new NoSuchElementException();
+            if ( !valid ) throw new GdxRuntimeException( "#iterator() cannot be used nested." );
+
+            var key = map._keyTable![ nextIndex ];
+
+            currentIndex = nextIndex;
+
+            FindNextIndex();
+
+            return key;
+        }
+
+        public Keys< TKk > Iterator()
+        {
+            return this;
+        }
+
+        /// <summary>
+        /// Returns a new array containing the remaining keys.
+        /// </summary>
+        public Array< TKk > ToArray()
+        {
+            return ToArray( new Array< TKk >( true, map.Size ) );
+        }
+
+        /// <summary>
+        /// Adds the remaining keys to the array.
+        /// </summary>
+        public Array< TKk > ToArray( Array< TKk > array )
+        {
+            while ( base.hasNext )
+            {
+                array.Add( Next() );
+            }
+
+            return array;
+        }
     }
 }

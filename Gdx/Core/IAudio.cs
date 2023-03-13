@@ -1,6 +1,6 @@
 ﻿using LibGDXSharp.Audio;
 
-namespace LibGDXSharp
+namespace LibGDXSharp.Core
 {
     public interface IAudio
     {

@@ -1,7 +1,7 @@
 ﻿
 using Monitor = LibGDXSharp.Graphics.Monitor;
 
-namespace LibGDXSharp
+namespace LibGDXSharp.Core
 {
     public interface IGraphics
     {

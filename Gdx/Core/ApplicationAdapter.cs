@@ -1,16 +1,16 @@
-﻿namespace LibGDXSharp
+﻿namespace LibGDXSharp.Core
 {
     /// <summary>
-    /// Convenience implementation of <see cref="IScreen"/>.
+    /// Convenience implementation of <see cref="IApplicationListener"/>.
     /// Derive from this and only override what you need.
     /// </summary>
-    public class ScreenAdapter : IScreen
+    public class ApplicationAdapter : IApplicationListener
     {
-        public virtual void Show()
+        public virtual void Create()
         {
         }
 
-        public virtual void Render( float delta )
+        public virtual void Render()
         {
         }
 
@@ -26,12 +26,9 @@
         {
         }
 
-        public virtual void Hide()
-        {
-        }
-
         public virtual void Dispose()
         {
         }
     }
 }
+

@@ -1,4 +1,5 @@
 ﻿using LibGDXSharp.Backends.Desktop;
+using LibGDXSharp.Backends.Desktop.Audio;
 using LibGDXSharp.Utils.Collections;
 
 namespace LibGDXSharp
@@ -96,6 +97,16 @@ namespace LibGDXSharp
             }
         }
 
+        public override IGLAudio CreateAudio(GLApplicationConfiguration config)
+        {
+            throw new NotImplementedException();
+        }
+
+        public override IGLInput CreateInput(GLWindow window)
+        {
+            throw new NotImplementedException();
+        }
+
         public override int GetVersion()
         {
             return 0;
@@ -117,6 +128,10 @@ namespace LibGDXSharp
         }
 
         public override void RemoveLifecycleListener( ILifecycleListener listener )
+        {
+        }
+
+        public static bool SetGLDebugMessageControl (GLDebugMessageSeverity severity, bool enabled)
         {
         }
     }

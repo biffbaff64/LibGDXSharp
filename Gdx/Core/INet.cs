@@ -1,6 +1,6 @@
 ﻿using LibGDXSharp.Network;
 
-namespace LibGDXSharp
+namespace LibGDXSharp.Core
 {
     public interface INet
     {

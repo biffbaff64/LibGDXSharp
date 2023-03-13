@@ -1,6 +1,6 @@
 ﻿using Monitor = LibGDXSharp.Graphics.Monitor;
 
-namespace LibGDXSharp
+namespace LibGDXSharp.Core
 {
     public abstract class AbstractGraphics : IGraphics
     {
